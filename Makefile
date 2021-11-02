@@ -5,6 +5,7 @@ run: fs qemu kernel
 		-append "console=ttyS0 kaslr panic=-1" -no-reboot
 
 qemu: .PHONY
+	$(MAKE) -C src copy_qemu_src
 	$(MAKE) -C qemu -j `nproc`
 
 kernel: .PHONY
@@ -12,5 +13,10 @@ kernel: .PHONY
 
 fs: .PHONY
 	cd rootfs && find . | cpio -o -Hnewc | gzip -9 > ../rootfs.cpio.gz
+
+# only need to be run once after submodules being cloned
+prepare: .PHONY
+	cd qemu && ./configure --target-list=x86_64-softmmu
+	$(MAKE) -C linux defconfig
 
 .PHONY:

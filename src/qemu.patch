@@ -1,0 +1,23 @@
+diff --git a/hw/misc/Kconfig b/hw/misc/Kconfig
+index 507058d8bf..1c683383d7 100644
+--- a/hw/misc/Kconfig
++++ b/hw/misc/Kconfig
+@@ -171,4 +171,9 @@ config SIFIVE_U_PRCI
+ config VIRT_CTRL
+     bool
+ 
++config CHAOS
++    bool
++    default y
++    depends on PCI
++
+ source macio/Kconfig
+diff --git a/hw/misc/meson.build b/hw/misc/meson.build
+index a53b849a5a..40ef8f3953 100644
+--- a/hw/misc/meson.build
++++ b/hw/misc/meson.build
+@@ -124,3 +124,4 @@ specific_ss.add(when: 'CONFIG_MIPS_CPS', if_true: files('mips_cmgcr.c', 'mips_cp
+ specific_ss.add(when: 'CONFIG_MIPS_ITU', if_true: files('mips_itu.c'))
+ 
+ specific_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
++subdir('chaos')
