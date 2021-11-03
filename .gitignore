@@ -1,1 +1,8 @@
 *.cpio.gz
+.*.cmd
+Module.symvers
+modules.order
+*.o
+*.ko
+*.mod
+*.mod.*
