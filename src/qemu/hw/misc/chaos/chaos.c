@@ -20,16 +20,25 @@
 /* 1 MB */
 #define CHAOS_DEVICE_DRAM_SIZE (1 << 20)
 
+struct share_mem {
+    int fd;
+    size_t size;
+    void *addr;
+};
+
 typedef struct {
     PCIDevice pdev;
     MemoryRegion mem_csrs, mem_dram;
 
-    int dram_fd;
-    void *dram;
+    struct share_mem csr, dram;
 } ChaosState;
 
 struct Csrs {
     uint64_t version; /* R */
+    uint64_t cmd_queue; /* RW */
+    uint64_t rsp_queue; /* RW */
+    uint64_t cmd_size; /* RW */
+    uint64_t rsp_size; /* RW */
     uint64_t reset; /* W */
     uint64_t irq_status; /* R */
     uint64_t clear_irq; /* W */
@@ -38,27 +47,39 @@ struct Csrs {
     uint64_t cmd_tail; /* W */
     uint64_t rsp_head; /* W */
     uint64_t rsp_tail; /* R */
-    uint64_t reserved[7];
+    uint64_t reserved[3];
 };
+
+static void share_mem_init(const char *name, size_t size, struct share_mem *smem)
+{
+    int ret;
+    int fd = memfd_create(name, 0);
+
+    g_assert(fd >= 0);
+    ret = ftruncate(fd, size);
+    g_assert(ret == 0);
+    smem->addr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    g_assert(smem->addr != MAP_FAILED);
+    smem->fd = fd;
+    smem->size = size;
+}
+
+static void share_mem_exit(struct share_mem *smem)
+{
+    munmap(smem->addr, smem->size);
+    close(smem->fd);
+}
 
 static void chaos_chip_init(ChaosState *chaos)
 {
-    int ret;
-    int dram_fd = memfd_create("dev-dram", 0);
-
-    g_assert(dram_fd >= 0);
-    ret = ftruncate(dram_fd, CHAOS_DEVICE_DRAM_SIZE);
-    g_assert(ret == 0);
-    chaos->dram_fd = dram_fd;
-    chaos->dram = mmap(0, CHAOS_DEVICE_DRAM_SIZE, PROT_READ | PROT_WRITE,
-                       MAP_SHARED, dram_fd, 0);
-    g_assert(chaos->dram != MAP_FAILED);
+    share_mem_init("dev-csr", sizeof(struct Csrs), &chaos->csr);
+    share_mem_init("dev-dram", CHAOS_DEVICE_DRAM_SIZE, &chaos->dram);
 }
 
 static void chaos_chip_exit(ChaosState *chaos)
 {
-    munmap(chaos->dram, CHAOS_DEVICE_DRAM_SIZE);
-    close(chaos->dram_fd);
+    share_mem_exit(&chaos->dram);
+    share_mem_exit(&chaos->csr);
 }
 
 static uint64_t chaos_csr_read(void *opaque, hwaddr addr, unsigned size)
@@ -89,16 +110,17 @@ static const MemoryRegionOps chaos_mem_csrs_ops = {
 static uint64_t chaos_dram_read(void *opaque, hwaddr addr, unsigned size)
 {
     ChaosState *chaos = opaque;
+    void *base = chaos->dram.addr;
 
     switch (size) {
     case 1:
-        return *((uint8_t*)(chaos->dram + addr));
+        return *((uint8_t*)(base + addr));
     case 2:
-        return *((uint16_t*)(chaos->dram + addr));
+        return *((uint16_t*)(base + addr));
     case 4:
-        return *((uint32_t*)(chaos->dram + addr));
+        return *((uint32_t*)(base + addr));
     case 8:
-        return *((uint64_t*)(chaos->dram + addr));
+        return *((uint64_t*)(base + addr));
     default:
         return 0;
     }
@@ -108,19 +130,20 @@ static void chaos_dram_write(void *opaque, hwaddr addr, uint64_t val,
                              unsigned size)
 {
     ChaosState *chaos = opaque;
+    void *base = chaos->dram.addr;
 
     switch (size) {
     case 1:
-        *((uint8_t*)(chaos->dram + addr)) = val;
+        *((uint8_t*)(base + addr)) = val;
         break;
     case 2:
-        *((uint16_t*)(chaos->dram + addr)) = val;
+        *((uint16_t*)(base + addr)) = val;
         break;
     case 4:
-        *((uint32_t*)(chaos->dram + addr)) = val;
+        *((uint32_t*)(base + addr)) = val;
         break;
     case 8:
-        *((uint64_t*)(chaos->dram + addr)) = val;
+        *((uint64_t*)(base + addr)) = val;
         break;
     default:
         return;
