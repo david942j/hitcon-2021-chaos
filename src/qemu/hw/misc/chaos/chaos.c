@@ -13,6 +13,14 @@
 #include "exec/memory.h"
 #include "hw/pci/pci.h"
 
+#define DEBUG
+
+#ifdef DEBUG
+#define debug(fmt, ...) fprintf(stderr, "%s:%d %s: " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#else
+#define debug(...)
+#endif
+
 #define PCI_DEVICE_ID_CHAOS 0x7331
 #define CHAOS_DEVICE_NAME "chaos"
 #define CHAOS(obj) OBJECT_CHECK(ChaosState, obj, CHAOS_DEVICE_NAME)
@@ -35,10 +43,10 @@ typedef struct {
 
 struct Csrs {
     uint64_t version; /* R */
-    uint64_t cmd_queue; /* RW */
-    uint64_t rsp_queue; /* RW */
-    uint64_t cmd_size; /* RW */
-    uint64_t rsp_size; /* RW */
+    uint64_t cmdq_addr; /* RW */
+    uint64_t rspq_addr; /* RW */
+    uint64_t cmdq_size; /* RW */
+    uint64_t rspq_size; /* RW */
     uint64_t reset; /* W */
     uint64_t irq_status; /* R */
     uint64_t clear_irq; /* W */
@@ -84,14 +92,24 @@ static void chaos_chip_exit(ChaosState *chaos)
 
 static uint64_t chaos_csr_read(void *opaque, hwaddr addr, unsigned size)
 {
-    uint64_t val = 0;
+    ChaosState *chaos = opaque;
 
-    return val;
+    if (addr >= sizeof(struct Csrs) || (addr & 7))
+        return 0;
+
+    debug("[0x%02lx] -> 0x%08lx\n", addr, *(uint64_t *)(chaos->csr.addr + addr));
+    return *(uint64_t *)(chaos->csr.addr + addr);
 }
 
 static void chaos_csr_write(void *opaque, hwaddr addr, uint64_t val,
                             unsigned size)
 {
+    ChaosState *chaos = opaque;
+
+    if (addr >= sizeof(struct Csrs) || (addr & 7))
+        return;
+    debug("[0x%02lx] <- 0x%08lx\n", addr, val);
+    *(uint64_t *)(chaos->csr.addr + addr) = val;
 }
 
 static const MemoryRegionOps chaos_mem_csrs_ops = {
