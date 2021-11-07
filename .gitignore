@@ -6,3 +6,4 @@ modules.order
 *.ko
 *.mod
 *.mod.*
+/rootfs/init

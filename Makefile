@@ -1,3 +1,5 @@
+INIT ?= src/tests/init
+
 all: build run
 
 run: .PHONY
@@ -17,9 +19,10 @@ kernel: .PHONY
 	$(MAKE) -C linux -j `nproc`
 	$(MAKE) -C src driver
 	cp src/linux/drivers/misc/chaos/chaos.ko rootfs/
-	$(MAKE) fs
+	$(MAKE) INIT="$(INIT)" fs
 
 fs: .PHONY
+	cp $(INIT) rootfs/init && chmod +x rootfs/init
 	cd rootfs && find . | cpio -o -Hnewc | gzip -9 > ../rootfs.cpio.gz
 
 # only need to be run once after submodules being cloned
