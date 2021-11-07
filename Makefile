@@ -25,6 +25,11 @@ fs: .PHONY
 	cp $(INIT) rootfs/init && chmod +x rootfs/init
 	cd rootfs && find . | cpio -o -Hnewc | gzip -9 > ../rootfs.cpio.gz
 
+test: .PHONY
+	$(MAKE) -C src/tests
+	cp -r src/tests rootfs/
+	$(MAKE) INIT=src/tests/init build run
+
 # only need to be run once after submodules being cloned
 prepare: .PHONY
 	cd qemu && ./configure --target-list=x86_64-softmmu

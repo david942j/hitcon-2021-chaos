@@ -7,3 +7,4 @@ modules.order
 *.mod
 *.mod.*
 /rootfs/init
+/rootfs/tests
