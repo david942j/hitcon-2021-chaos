@@ -5,6 +5,8 @@
  * Copyright (c) 2021 david942j
  */
 
+#include <linux/err.h>
+
 #include "chaos-core.h"
 #include "chaos-dram.h"
 #include "chaos-fs.h"

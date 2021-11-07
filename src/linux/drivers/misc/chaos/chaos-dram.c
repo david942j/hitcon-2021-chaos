@@ -6,6 +6,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/err.h>
 #include <linux/genalloc.h>
 
 #include "chaos-core.h"
@@ -46,12 +47,10 @@ int chaos_dram_alloc(struct chaos_dram_pool *dpool, size_t size, struct chaos_re
 	res->size = size;
 	res->paddr = paddr;
 	res->vaddr = dpool->res->vaddr + (paddr - dpool->res->paddr);
-	dev_info(dpool->cdev->dev, "%s: size=0x%lx, paddr=0x%lx\n", __func__, size, paddr);
 	return 0;
 }
 
 void chaos_dram_free(struct chaos_dram_pool *dpool, const struct chaos_resource *res)
 {
 	gen_pool_free(dpool->pool, res->paddr, res->size);
-	dev_info(dpool->cdev->dev, "%s: size=0x%lx, paddr=0x%llx\n", __func__, res->size, res->paddr);
 }

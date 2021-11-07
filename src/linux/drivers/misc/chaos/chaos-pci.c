@@ -6,6 +6,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/err.h>
 #include <linux/irqreturn.h>
 #include <linux/module.h>
 #include <linux/pci.h>

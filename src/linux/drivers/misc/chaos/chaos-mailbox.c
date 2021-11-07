@@ -6,6 +6,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/err.h>
 
 #include "chaos-core.h"
 #include "chaos-dram.h"
