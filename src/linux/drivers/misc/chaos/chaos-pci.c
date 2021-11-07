@@ -11,7 +11,7 @@
 #include <linux/pci.h>
 #include <linux/types.h>
 
-#include "chaos-internal.h"
+#include "chaos-core.h"
 
 #define PCI_VENDOR_ID_QEMU 0x1234
 #define PCI_DEVICE_ID_CHAOS 0x7331
@@ -85,7 +85,7 @@ static int chaos_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		pci_err(pdev, "Failed to request interrupt IRQ: %d\n", pdev->irq);
 		return ret;
 	}
-	ret = chaos_fs_init(cdev);
+	ret = chaos_init(cdev);
 	if (ret)
 		return ret;
 
@@ -98,7 +98,7 @@ static void chaos_pci_remove(struct pci_dev *pdev)
 {
 	struct chaos_device *cdev = pci_get_drvdata(pdev);
 
-	chaos_fs_exit(cdev);
+	chaos_exit(cdev);
 }
 
 static const struct pci_device_id chaos_pci_ids[] = {

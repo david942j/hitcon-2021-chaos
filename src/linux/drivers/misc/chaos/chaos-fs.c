@@ -9,7 +9,8 @@
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 
-#include "chaos-internal.h"
+#include "chaos-core.h"
+#include "chaos-fs.h"
 
 static int chaos_fs_open(struct inode *n, struct file *file)
 {
@@ -34,24 +35,15 @@ static const struct file_operations chaos_fs_ops = {
 	.release = chaos_fs_release,
 };
 
-int chaos_fs_init(struct chaos_device *cdev)
+int chaos_fs_init(struct miscdevice *chardev)
 {
-	int ret;
-
-	cdev->chardev.minor = MISC_DYNAMIC_MINOR;
-	cdev->chardev.name = "chaos";
-	cdev->chardev.fops = &chaos_fs_ops;
-	ret = misc_register(&cdev->chardev);
-	if (ret) {
-		dev_err(cdev->dev, "device register failed");
-		return ret;
-	}
-
-	return 0;
+	chardev->minor = MISC_DYNAMIC_MINOR;
+	chardev->name = "chaos";
+	chardev->fops = &chaos_fs_ops;
+	return misc_register(chardev);
 }
 
-void chaos_fs_exit(struct chaos_device *cdev)
+void chaos_fs_exit(struct miscdevice *chardev)
 {
-	misc_deregister(&cdev->chardev);
+	misc_deregister(chardev);
 }
-
