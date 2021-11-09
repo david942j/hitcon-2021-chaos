@@ -11,6 +11,7 @@
 #include "chaos-core.h"
 #include "chaos-dram.h"
 #include "chaos-mailbox.h"
+#include "chaos.h"
 
 struct chaos_mailbox *chaos_mailbox_init(struct chaos_device *cdev)
 {
@@ -39,4 +40,10 @@ void chaos_mailbox_exit(struct chaos_mailbox *mbox)
 {
 	chaos_dram_free(mbox->cdev->dpool, &mbox->rspq);
 	chaos_dram_free(mbox->cdev->dpool, &mbox->cmdq);
+}
+
+int chaos_mailbox_request(struct chaos_mailbox *mbox, struct chaos_request *req)
+{
+	// TODO
+	return 0;
 }

@@ -9,6 +9,7 @@
 #define _CHAOS_MAILBOX_H
 
 #include "chaos-core.h"
+#include "chaos.h"
 
 #define CHAOS_QUEUE_SIZE 512
 #define CHAOS_CMD_QUEUE_LENGTH (CHAOS_QUEUE_SIZE * sizeof(struct chaos_mailbox_cmd))
@@ -30,5 +31,7 @@ struct chaos_mailbox {
 
 struct chaos_mailbox *chaos_mailbox_init(struct chaos_device *cdev);
 void chaos_mailbox_exit(struct chaos_mailbox *mbox);
+
+int chaos_mailbox_request(struct chaos_mailbox *mbox, struct chaos_request *req);
 
 #endif /* _CHAOS_MAILBOX_H */

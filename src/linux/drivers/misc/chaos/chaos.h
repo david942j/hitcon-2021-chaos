@@ -15,6 +15,28 @@
  *
  * Returns 0 on success.
  */
-#define CHAOS_ALLOCATE_BUFFER _IOW(CHAOS_IOC_MAGIC, 0, __u64)
+#define CHAOS_ALLOCATE_BUFFER _IOW(CHAOS_IOC_MAGIC, 0, u_int64_t)
+
+enum chaos_request_algo {
+	/* copy input to output, for testing purpose */
+	CHAOS_ALGO_ECHO,
+	CHAOS_ALGO_MD5,
+};
+
+struct chaos_request {
+	enum chaos_request_algo algo;
+	u_int32_t input;
+	u_int32_t in_size;
+	u_int32_t output;
+	/*
+	 * Size of @output.
+	 * Will be set to the "true" output size on success.
+	 * e.g. for CHAOS_ALGO_MD5, runtime should have out_size >= 16, and @out_size
+	 * is set to 16 when ioctl returned.
+	 */
+	u_int32_t out_size;
+};
+
+#define CHAOS_REQUEST _IOWR(CHAOS_IOC_MAGIC, 0, struct chaos_request)
 
 #endif /* _CHAOS_H */

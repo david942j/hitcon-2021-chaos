@@ -15,6 +15,7 @@
 #include "chaos-core.h"
 #include "chaos-dram.h"
 #include "chaos-fs.h"
+#include "chaos-mailbox.h"
 #include "chaos.h"
 
 static int chaos_client_init(struct chaos_device *cdev, struct chaos_client *client)
@@ -56,6 +57,43 @@ static int chaos_ioctl_allocate_buffer(struct chaos_client *client, size_t size)
 	return chaos_dram_alloc(cdev->dpool, size, &client->buf);
 }
 
+static int chaos_ioctl_request(struct chaos_client *client, void __user *arg)
+{
+	struct chaos_request orig_req, req;
+	size_t offset;
+	int ret;
+
+	if (client->buf.size == 0)
+		return -ENOSPC;
+	if (copy_from_user(&req, arg, sizeof(req)))
+		return -EFAULT;
+
+	orig_req = req;
+	offset = client->buf.paddr - client->cdev->dpool->res->paddr;
+	/* adjust buffer offsets */
+	if (req.in_size != 0) {
+		if (req.input >= client->buf.size)
+			return -EINVAL;
+		req.input += offset;
+	} else {
+		req.input = 0;
+	}
+	if (req.out_size != 0) {
+		if (req.output >= client->buf.size)
+			return -EINVAL;
+		req.output += offset;
+	} else {
+		req.output = 0;
+	}
+	ret = chaos_mailbox_request(client->cdev->mbox, &req);
+	if (ret)
+		return ret;
+	orig_req.out_size = req.out_size;
+	if (copy_to_user(arg, &orig_req, sizeof(orig_req)))
+		return -EFAULT;
+	return 0;
+}
+
 static long chaos_fs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct chaos_client *client = file->private_data;
@@ -63,6 +101,8 @@ static long chaos_fs_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	switch (cmd) {
 	case CHAOS_ALLOCATE_BUFFER:
 		return chaos_ioctl_allocate_buffer(client, arg);
+	case CHAOS_REQUEST:
+		return chaos_ioctl_request(client, (void __user*)arg);
 	default:
 		return -ENOTTY;
 	}
