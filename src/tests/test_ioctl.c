@@ -56,15 +56,23 @@ static void test_alloate_buffer(void) {
   /* no buffer allocated */
   ASSERT_MMAP_ERR(0x1000, PROT_READ, fd, 0, EINVAL);
 
-  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 1337);
+  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 0x1337);
   /* allocate twice should fail */
   ASSERT_IOCTL_ERR(fd, CHAOS_ALLOCATE_BUFFER, 1, EEXIST);
 
-  void *ptr = mmap(0, 4096, PROT_READ, MAP_SHARED, fd, 0);
-  assert(ptr != MAP_FAILED);
-
   /* offset exceeds allocated size */
-  /* ASSERT_MMAP_ERR(0x1000, PROT_READ, fd, 0x2000, EINVAL); */
+  ASSERT_MMAP_ERR(0x1000, PROT_READ, fd, 0x3000, EINVAL);
+
+  void *ptr = mmap(0, 4096, PROT_WRITE, MAP_SHARED, fd, 0x1000);
+  assert(ptr != MAP_FAILED);
+  static char buf[4096];
+  for(int i = 0; i < sizeof(buf); i++)
+    buf[i] = i;
+  memcpy(ptr, buf, 4096);
+  munmap(ptr, 4096);
+  ptr = mmap(0, 4096, PROT_READ, MAP_SHARED, fd, 0x1000);
+  assert(ptr != MAP_FAILED);
+  assert(memcmp(ptr, buf, 4096) == 0);
 }
 
 int main() {
