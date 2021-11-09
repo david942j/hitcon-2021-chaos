@@ -8,6 +8,7 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/genalloc.h>
+#include <linux/mm.h>
 
 #include "chaos-core.h"
 #include "chaos-dram.h"
@@ -40,13 +41,18 @@ void chaos_dram_exit(struct chaos_dram_pool *dpool)
 
 int chaos_dram_alloc(struct chaos_dram_pool *dpool, size_t size, struct chaos_resource *res)
 {
-	unsigned long paddr = gen_pool_alloc(dpool->pool, size);
+	unsigned long paddr;
 
+	if (size == 0)
+		return -EINVAL;
+	size = PAGE_ALIGN(size);
+	paddr = gen_pool_alloc(dpool->pool, size);
 	if (!paddr)
 		return -ENOSPC;
 	res->size = size;
 	res->paddr = paddr;
 	res->vaddr = dpool->res->vaddr + (paddr - dpool->res->paddr);
+	memset(res->vaddr, 0, size);
 	return 0;
 }
 

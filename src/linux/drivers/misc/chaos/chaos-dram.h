@@ -23,7 +23,8 @@ struct chaos_dram_pool *chaos_dram_init(struct chaos_device *cdev);
 void chaos_dram_exit(struct chaos_dram_pool *dpool);
 
 /*
- * On success, this function fills @res with allocated paddr and vaddr. @res->size is set to @size.
+ * On success, this function fills @res with allocated paddr and vaddr. @res->size is set to
+ * PAGE_ALIGN(@size).
  */
 int chaos_dram_alloc(struct chaos_dram_pool *dpool, size_t size, struct chaos_resource *res);
 void chaos_dram_free(struct chaos_dram_pool *dpool, const struct chaos_resource *res);

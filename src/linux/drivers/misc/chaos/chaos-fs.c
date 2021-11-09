@@ -9,6 +9,7 @@
 #include <linux/err.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
+#include <linux/mm.h>
 #include <linux/slab.h>
 
 #include "chaos-core.h"
@@ -48,7 +49,6 @@ static int chaos_ioctl_allocate_buffer(struct chaos_client *client, size_t size)
 {
 	struct chaos_device *cdev = client->cdev;
 
-	// TODO: test all error cases
 	if (size == 0)
 		return -EINVAL;
 	if (client->buf.size != 0)
@@ -71,10 +71,16 @@ static long chaos_fs_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 static int chaos_fs_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct chaos_client *client = file->private_data;
+	const size_t buf_size = client->buf.size;
+	const size_t vma_size = vma->vm_end - vma->vm_start;
+	const size_t vma_off = vma->vm_pgoff << PAGE_SHIFT;
 
-	if (client->buf.size == 0)
+	if (buf_size == 0 || vma_size > buf_size || vma_off >= buf_size ||
+	    vma_size > buf_size - vma_off)
 		return -EINVAL;
-	return 0;
+	return io_remap_pfn_range(vma, vma->vm_start,
+				  (client->buf.paddr + vma_off) >> PAGE_SHIFT, vma_size,
+				  vma->vm_page_prot);
 }
 
 static int chaos_fs_release(struct inode *n, struct file *file)
