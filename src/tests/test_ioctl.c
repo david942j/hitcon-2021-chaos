@@ -98,8 +98,8 @@ static void test_request(void) {
     in[i] = i * 2;
   req.output = 0x1000; req.out_size = 0x1000;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
-  /* assert(req.out_size == 0x100); */
-  /* assert(memcmp(in, out, 0x100) == 0); */
+  assert(req.out_size == 0x100);
+  assert(memcmp(in, out, 0x100) == 0);
 }
 
 int main() {

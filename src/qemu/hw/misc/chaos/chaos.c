@@ -13,7 +13,7 @@
 #include "exec/memory.h"
 #include "hw/pci/pci.h"
 
-#define DEBUG
+/* #define DEBUG */
 
 #ifdef DEBUG
 #define debug(fmt, ...) fprintf(stderr, "%s:%d %s: " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__)
@@ -57,6 +57,125 @@ struct Csrs {
     uint64_t rsp_tail; /* R */
     uint64_t reserved[3];
 };
+
+static void chaos_raise_irq(ChaosState *chaos)
+{
+    pci_set_irq(&chaos->pdev, 1);
+}
+
+static void chaos_lower_irq(ChaosState *chaos)
+{
+    pci_set_irq(&chaos->pdev, 0);
+}
+
+// TODO
+#define USE_BUILTIN 1
+
+#if USE_BUILTIN
+
+static uint64_t chaos_csr_read(void *opaque, hwaddr addr, unsigned size);
+static void chaos_csr_write(void *opaque, hwaddr addr, uint64_t val, unsigned size);
+#define READ_CSR(chaos, field) chaos_csr_read(chaos, offsetof(struct Csrs, field), 8)
+#define WRITE_CSR(chaos, field, val) chaos_csr_write(chaos, offsetof(struct Csrs, field), val, 8)
+enum chaos_command_code {
+	CHAOS_CMD_CODE_REQUEST,
+};
+
+struct chaos_mailbox_cmd {
+    uint32_t seq;
+    enum chaos_command_code code;
+    uint32_t dma_addr;
+    uint32_t dma_size;
+};
+
+struct chaos_mailbox_rsp {
+    uint32_t seq;
+    uint32_t retval;
+};
+
+enum chaos_request_algo {
+	/* copy input to output, for testing purpose */
+	CHAOS_ALGO_ECHO,
+	CHAOS_ALGO_MD5,
+};
+
+struct chaos_request {
+	enum chaos_request_algo algo;
+	uint32_t input;
+	uint32_t in_size;
+	uint32_t output;
+	uint32_t out_size;
+};
+
+#define VALID_ADDR_SIZE(chaos, addr, sz) do { \
+    g_assert((sz) <= chaos->dram.size); \
+    g_assert((addr) < chaos->dram.size); \
+    g_assert((addr) <= chaos->dram.size - (sz)); \
+} while (0)
+
+static uint64_t real_index(uint64_t idx, uint64_t size)
+{
+    return idx & (size - 1);
+}
+
+static int handle_cmd(ChaosState *chaos, struct chaos_mailbox_cmd *cmd)
+{
+    struct chaos_request *req;
+
+    // XXX: the implementation here is bad, kernel is able to hack with TOCTOU
+    g_assert(cmd->code == CHAOS_CMD_CODE_REQUEST);
+    g_assert(cmd->dma_size == sizeof(struct chaos_request));
+    VALID_ADDR_SIZE(chaos, cmd->dma_addr, cmd->dma_size);
+    req = chaos->dram.addr + cmd->dma_addr;
+    g_assert(req->algo == CHAOS_ALGO_ECHO);
+    VALID_ADDR_SIZE(chaos, req->input, req->in_size);
+    VALID_ADDR_SIZE(chaos, req->output, req->out_size);
+
+    // handles echo
+    memcpy(chaos->dram.addr + req->output, chaos->dram.addr + req->input, req->in_size);
+    return req->in_size;
+}
+
+static inline uint64_t queue_inc(uint64_t val, uint64_t size)
+{
+    return (++val) & ((size << 1) - 1);
+}
+
+static void push_rsp(ChaosState *chaos, struct chaos_mailbox_rsp *rsp)
+{
+    struct chaos_mailbox_rsp *queue = chaos->dram.addr + READ_CSR(chaos, rspq_addr);
+    const uint64_t rspq_size = READ_CSR(chaos, rspq_size);
+    uint64_t tail = READ_CSR(chaos, rsp_tail);
+
+    debug("queue[%ld] = {%u, %u}\n", real_index(tail, rspq_size), rsp->seq, rsp->retval);
+    queue[real_index(tail, rspq_size)] = *rsp;
+    WRITE_CSR(chaos, rsp_tail, queue_inc(tail, rspq_size));
+}
+
+#endif
+
+static void chaos_interrupt_to_device(ChaosState *chaos)
+{
+#if USE_BUILTIN
+    const uint64_t cmdq_size = READ_CSR(chaos, cmdq_size);
+    uint64_t head = READ_CSR(chaos, cmd_head);
+    uint64_t tail = READ_CSR(chaos, cmd_tail);
+    struct chaos_mailbox_cmd *cmdq = chaos->dram.addr + READ_CSR(chaos, cmdq_addr), *cmd;
+    struct chaos_mailbox_rsp rsp;
+
+    if (head == tail)
+        return;
+    cmd = &cmdq[real_index(head, cmdq_size)];
+    debug("head = %d, sz = %d, dma = 0x%x, dma_size = 0x%x\n", (int)head, (int)cmdq_size, cmd->dma_addr, cmd->dma_size);
+    WRITE_CSR(chaos, cmd_head, queue_inc(head, cmdq_size));
+    rsp.retval = handle_cmd(chaos, cmd);
+    rsp.seq = cmd->seq;
+    push_rsp(chaos, &rsp);
+    chaos_raise_irq(chaos);
+#else
+    // TODO: trigger eventfd to the external dev
+#endif
+}
 
 static void share_mem_init(const char *name, size_t size, struct share_mem *smem)
 {
@@ -109,7 +228,16 @@ static void chaos_csr_write(void *opaque, hwaddr addr, uint64_t val,
     if (addr >= sizeof(struct Csrs) || (addr & 7))
         return;
     debug("[0x%02lx] <- 0x%08lx\n", addr, val);
-    *(uint64_t *)(chaos->csr.addr + addr) = val;
+    switch (addr) {
+    case offsetof(struct Csrs, cmd_sent):
+        if (val & 1)
+            chaos_interrupt_to_device(chaos);
+        return;
+    case offsetof(struct Csrs, clear_irq):
+        return chaos_lower_irq(chaos);
+    default:
+        *(uint64_t *)(chaos->csr.addr + addr) = val;
+    }
 }
 
 static const MemoryRegionOps chaos_mem_csrs_ops = {
@@ -130,6 +258,7 @@ static uint64_t chaos_dram_read(void *opaque, hwaddr addr, unsigned size)
     ChaosState *chaos = opaque;
     void *base = chaos->dram.addr;
 
+    debug("[0x%02lx] -> 0x%08lx\n", addr, *(uint64_t *)(chaos->dram.addr + addr));
     switch (size) {
     case 1:
         return *((uint8_t*)(base + addr));
@@ -150,6 +279,7 @@ static void chaos_dram_write(void *opaque, hwaddr addr, uint64_t val,
     ChaosState *chaos = opaque;
     void *base = chaos->dram.addr;
 
+    debug("[0x%02lx] <- 0x%08lx\n", addr, val);
     switch (size) {
     case 1:
         *((uint8_t*)(base + addr)) = val;
@@ -172,11 +302,11 @@ static const MemoryRegionOps chaos_mem_dram_ops = {
     .read = chaos_dram_read,
     .write = chaos_dram_write,
     .valid = {
-        .min_access_size = 8,
+        .min_access_size = 1,
         .max_access_size = 8,
     },
     .impl = {
-        .min_access_size = 8,
+        .min_access_size = 1,
         .max_access_size = 8,
     },
 };
