@@ -17,8 +17,11 @@
 struct chaos_client {
 	struct mutex lock;
 	/* fields protected by @lock */
+
 	struct chaos_resource buf;
+
 	/* constant fields */
+
 	struct chaos_device *cdev;
 };
 

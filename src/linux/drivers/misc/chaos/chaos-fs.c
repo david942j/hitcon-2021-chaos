@@ -49,37 +49,50 @@ static int chaos_fs_open(struct inode *n, struct file *file)
 static int chaos_ioctl_allocate_buffer(struct chaos_client *client, size_t size)
 {
 	struct chaos_device *cdev = client->cdev;
+	int ret;
 
 	if (size == 0)
 		return -EINVAL;
-	if (client->buf.size != 0)
-		return -EEXIST;
-	return chaos_dram_alloc(cdev->dpool, size, &client->buf);
+
+	mutex_lock(&client->lock);
+	if (client->buf.size != 0) {
+		ret = -EEXIST;
+		goto out_unlock;
+	}
+	ret = chaos_dram_alloc(cdev->dpool, size, &client->buf);
+out_unlock:
+	mutex_unlock(&client->lock);
+	return ret;
 }
 
 static int chaos_ioctl_request(struct chaos_client *client, void __user *arg)
 {
 	struct chaos_request orig_req, req;
 	size_t offset;
+	size_t size;
 	int ret;
 
-	if (client->buf.size == 0)
-		return -ENOSPC;
 	if (copy_from_user(&req, arg, sizeof(req)))
 		return -EFAULT;
 
+	mutex_lock(&client->lock);
+	size = client->buf.size;
+	mutex_unlock(&client->lock);
+	if (size == 0)
+		return -ENOSPC;
 	orig_req = req;
-	offset = client->buf.paddr - client->cdev->dpool->res->paddr;
+	/* @size is not zero implies buf allocated, no need to hold @lock */
+	offset = CHAOS_DRAM_OFFSET(client->cdev->dpool, &client->buf);
 	/* adjust buffer offsets */
 	if (req.in_size != 0) {
-		if (req.input >= client->buf.size)
+		if (req.input >= size)
 			return -EINVAL;
 		req.input += offset;
 	} else {
 		req.input = 0;
 	}
 	if (req.out_size != 0) {
-		if (req.output >= client->buf.size)
+		if (req.output >= size)
 			return -EINVAL;
 		req.output += offset;
 	} else {
@@ -111,13 +124,17 @@ static long chaos_fs_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 static int chaos_fs_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct chaos_client *client = file->private_data;
-	const size_t buf_size = client->buf.size;
 	const size_t vma_size = vma->vm_end - vma->vm_start;
 	const size_t vma_off = vma->vm_pgoff << PAGE_SHIFT;
+	size_t buf_size;
 
+	mutex_lock(&client->lock);
+	buf_size = client->buf.size;
+	mutex_unlock(&client->lock);
 	if (buf_size == 0 || vma_size > buf_size || vma_off >= buf_size ||
 	    vma_size > buf_size - vma_off)
 		return -EINVAL;
+	/* buf_size not zero -> buf allocated, can be used without holding the lock */
 	return io_remap_pfn_range(vma, vma->vm_start,
 				  (client->buf.paddr + vma_off) >> PAGE_SHIFT, vma_size,
 				  vma->vm_page_prot);

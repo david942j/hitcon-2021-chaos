@@ -8,6 +8,9 @@
 #ifndef _CHAOS_MAILBOX_H
 #define _CHAOS_MAILBOX_H
 
+#include <linux/atomic.h>
+#include <linux/mutex.h>
+
 #include "chaos-core.h"
 #include "chaos.h"
 
@@ -15,8 +18,15 @@
 #define CHAOS_CMD_QUEUE_LENGTH (CHAOS_QUEUE_SIZE * sizeof(struct chaos_mailbox_cmd))
 #define CHAOS_RSP_QUEUE_LENGTH (CHAOS_QUEUE_SIZE * sizeof(struct chaos_mailbox_rsp))
 
+enum chaos_command_code {
+	CHAOS_CMD_CODE_REQUEST,
+};
+
 struct chaos_mailbox_cmd {
-	uint64_t seq;
+	uint32_t seq;
+	enum chaos_command_code code;
+	uint32_t dma_addr;
+	uint32_t dma_size;
 };
 
 struct chaos_mailbox_rsp {
@@ -26,6 +36,9 @@ struct chaos_mailbox_rsp {
 
 struct chaos_mailbox {
 	struct chaos_resource cmdq, rspq;
+	/* lock for accessing cmd / rsp queues */
+	struct mutex cmdq_lock, rspq_lock;
+	atomic_t next_seq;
 	struct chaos_device *cdev;
 };
 

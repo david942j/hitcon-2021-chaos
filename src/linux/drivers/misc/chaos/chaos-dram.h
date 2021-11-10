@@ -12,6 +12,8 @@
 
 #include "chaos-core.h"
 
+#define CHAOS_DRAM_OFFSET(dpool, buf) ((buf)->paddr - (dpool)->res->paddr)
+
 struct chaos_dram_pool {
 	struct gen_pool *pool;
 	/* constant fields after init */
