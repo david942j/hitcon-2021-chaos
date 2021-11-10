@@ -13,12 +13,17 @@
 #include <linux/types.h>
 
 #include "chaos-core.h"
+#include "chaos-mailbox.h"
 
 #define PCI_VENDOR_ID_QEMU 0x1234
 #define PCI_DEVICE_ID_CHAOS 0x7331
 
 static irqreturn_t chaos_irq_handler(int irq, void *data)
 {
+	struct chaos_device *cdev = data;
+
+	CHAOS_WRITE(cdev, clear_irq, 1);
+	chaos_mailbox_handle_irq(cdev->mbox);
 	return IRQ_HANDLED;
 }
 

@@ -10,6 +10,7 @@
 
 #include <linux/atomic.h>
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
 
 #include "chaos-core.h"
 #include "chaos.h"
@@ -30,20 +31,25 @@ struct chaos_mailbox_cmd {
 };
 
 struct chaos_mailbox_rsp {
-	uint64_t seq;
-	uint64_t retval;
+	uint32_t seq;
+	uint32_t retval;
 };
 
 struct chaos_mailbox {
 	struct chaos_resource cmdq, rspq;
 	/* lock for accessing cmd / rsp queues */
-	struct mutex cmdq_lock, rspq_lock;
+	struct mutex cmdq_lock;
+	spinlock_t rspq_lock;
+	struct chaos_mailbox_rsp *responses;
+	wait_queue_head_t waitq;
 	atomic_t next_seq;
 	struct chaos_device *cdev;
 };
 
 struct chaos_mailbox *chaos_mailbox_init(struct chaos_device *cdev);
 void chaos_mailbox_exit(struct chaos_mailbox *mbox);
+
+void chaos_mailbox_handle_irq(struct chaos_mailbox *mbox);
 
 int chaos_mailbox_request(struct chaos_mailbox *mbox, struct chaos_request *req);
 

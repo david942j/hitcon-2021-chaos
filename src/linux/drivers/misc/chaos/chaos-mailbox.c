@@ -9,12 +9,15 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/mutex.h>
+#include <linux/spinlock.h>
+#include <linux/wait.h>
 
 #include "chaos-core.h"
 #include "chaos-dram.h"
 #include "chaos-mailbox.h"
 #include "chaos.h"
 
+#define MAILBOX_TIMEOUT_MS 1000
 /* BUG: should be "& (CHAOS_QUEUE_SIZE - 1)" to prevent OOB */
 #define REAL_INDEX(v) ((v) & ~CHAOS_QUEUE_SIZE)
 
@@ -28,12 +31,18 @@ static inline u64 queue_inc(u64 index)
 	return (++index) & ((CHAOS_QUEUE_SIZE << 1) - 1);
 }
 
-static int chaos_push_cmd(struct chaos_mailbox *mbox, const struct chaos_mailbox_cmd *cmd)
+#define WAITING_RESPONSE -100
+#define WRONG_SEQ -101
+static int chaos_push_cmd_and_wait(struct chaos_mailbox *mbox, const struct chaos_mailbox_cmd *cmd,
+				   u32 *retval)
 {
 	struct chaos_device *cdev = mbox->cdev;
 	const u64 head = CHAOS_READ(cdev, cmd_head);
-	struct chaos_mailbox_cmd *queue = mbox->cmdq.vaddr;
 	u64 tail;
+	struct chaos_mailbox_cmd *queue = mbox->cmdq.vaddr;
+	const size_t idx = cmd->seq % CHAOS_QUEUE_SIZE;
+	u32 val;
+	int ret;
 
 	mutex_lock(&mbox->cmdq_lock);
 	tail = CHAOS_READ(cdev, cmd_tail);
@@ -41,28 +50,31 @@ static int chaos_push_cmd(struct chaos_mailbox *mbox, const struct chaos_mailbox
 		mutex_unlock(&mbox->cmdq_lock);
 		return -EBUSY;
 	}
-	memcpy(&queue[REAL_INDEX(head)], cmd, sizeof(*cmd));
-	CHAOS_WRITE(cdev, cmd_head, queue_inc(head));
+	memcpy(&queue[REAL_INDEX(tail)], cmd, sizeof(*cmd));
+	CHAOS_WRITE(cdev, cmd_tail, queue_inc(tail));
+	mutex_unlock(&mbox->cmdq_lock);
+
+	mbox->responses[idx].seq = cmd->seq;
+	mbox->responses[idx].retval = WAITING_RESPONSE;
 	CHAOS_WRITE(cdev, cmd_sent, 1);
+
+	ret = wait_event_timeout(mbox->waitq, (val = mbox->responses[idx].retval) != WAITING_RESPONSE,
+				 msecs_to_jiffies(MAILBOX_TIMEOUT_MS));
+	if (!ret)
+		return -ETIMEDOUT;
+	if (val == WRONG_SEQ)
+		return -ENOMSG;
+	*retval = val;
 	return 0;
-}
-
-static int chaos_push_cmd_and_wait(struct chaos_mailbox *mbox, const struct chaos_mailbox_cmd *cmd,
-				   u64 *retval)
-{
-	int ret = chaos_push_cmd(mbox, cmd);
-
-	if (ret)
-		return ret;
-
-	return ret;
 }
 
 struct chaos_mailbox *chaos_mailbox_init(struct chaos_device *cdev)
 {
 	int ret;
-	struct chaos_mailbox *mbox = devm_kzalloc(cdev->dev, sizeof(*mbox), GFP_KERNEL);
+	struct chaos_mailbox *mbox;
+	const size_t sz = sizeof(*mbox) + sizeof(*mbox->responses) * CHAOS_QUEUE_SIZE;
 
+	mbox = devm_kzalloc(cdev->dev, sz, GFP_KERNEL);
 	if (!mbox)
 		return ERR_PTR(-ENOMEM);
 	ret = chaos_dram_alloc(cdev->dpool, CHAOS_CMD_QUEUE_LENGTH, &mbox->cmdq);
@@ -73,8 +85,10 @@ struct chaos_mailbox *chaos_mailbox_init(struct chaos_device *cdev)
 		chaos_dram_free(cdev->dpool, &mbox->cmdq);
 		return ERR_PTR(ret);
 	}
+	mbox->responses = (void *)(mbox + 1);
 	mutex_init(&mbox->cmdq_lock);
-	mutex_init(&mbox->rspq_lock);
+	spin_lock_init(&mbox->rspq_lock);
+	init_waitqueue_head(&mbox->waitq);
 	atomic_set(&mbox->next_seq, 0);
 	CHAOS_WRITE(cdev, cmdq_addr, mbox->cmdq.paddr - cdev->dram.paddr);
 	CHAOS_WRITE(cdev, cmdq_size, CHAOS_QUEUE_SIZE);
@@ -90,6 +104,28 @@ void chaos_mailbox_exit(struct chaos_mailbox *mbox)
 	chaos_dram_free(mbox->cdev->dpool, &mbox->cmdq);
 }
 
+void chaos_mailbox_handle_irq(struct chaos_mailbox *mbox)
+{
+	struct chaos_device *cdev = mbox->cdev;
+	struct chaos_mailbox_rsp *queue = mbox->rspq.vaddr;
+	u64 head = CHAOS_READ(cdev, rsp_head);
+	unsigned long flags;
+
+	spin_lock_irqsave(&mbox->rspq_lock, flags);
+	while (head != CHAOS_READ(cdev, rsp_tail)) {
+		struct chaos_mailbox_rsp rsp = queue[REAL_INDEX(head)];
+		const size_t idx = rsp.seq % CHAOS_QUEUE_SIZE;
+
+		if (mbox->responses[idx].seq != rsp.seq)
+			mbox->responses[idx].retval = WRONG_SEQ;
+		else
+			mbox->responses[idx].retval = rsp.retval;
+		head = queue_inc(head);
+	}
+	spin_unlock_irqrestore(&mbox->rspq_lock, flags);
+	wake_up(&mbox->waitq);
+}
+
 int chaos_mailbox_request(struct chaos_mailbox *mbox, struct chaos_request *req)
 {
 	struct chaos_mailbox_cmd cmd = {
@@ -99,7 +135,7 @@ int chaos_mailbox_request(struct chaos_mailbox *mbox, struct chaos_request *req)
 	struct chaos_dram_pool *dpool = mbox->cdev->dpool;
 	struct chaos_resource buf;
 	int ret;
-	u64 retval = 0;
+	u32 retval = 0;
 
 	ret = chaos_dram_alloc(dpool, sizeof(*req), &buf);
 	if (ret)
