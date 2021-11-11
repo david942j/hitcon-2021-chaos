@@ -6,14 +6,16 @@
 
 #include "qemu/osdep.h"
 
+#include <signal.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "exec/memory.h"
 #include "hw/pci/pci.h"
 
-/* #define DEBUG */
+#define DEBUG
 
 #ifdef DEBUG
 #define debug(fmt, ...) fprintf(stderr, "%s:%d %s: " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__)
@@ -39,6 +41,7 @@ typedef struct {
     MemoryRegion mem_csrs, mem_dram;
 
     struct share_mem csr, dram;
+    pid_t devpid;
 } ChaosState;
 
 struct Csrs {
@@ -233,14 +236,41 @@ static void share_mem_exit(struct share_mem *smem)
     close(smem->fd);
 }
 
+static void launch_device(ChaosState *chaos)
+{
+    // TODO: create a thread for polling eventfd
+    pid_t pid = fork();
+    if (!pid) {
+        close(0);
+        close(1);
+#ifndef DEBUG
+        close(2);
+#endif
+        dup2(chaos->csr.fd, 3);
+        dup2(chaos->dram.fd, 4);
+        close(chaos->csr.fd);
+        close(chaos->dram.fd);
+        const char *const argv[] = { "entry", NULL };
+        execv("/home/david942j/hitcon-2021-chaos/src/chaos/entry", (char *const *)argv);
+        g_assert(false);
+    } else {
+        debug("child = %d\n", pid);
+        chaos->devpid = pid;
+    }
+}
+
 static void chaos_chip_init(ChaosState *chaos)
 {
     share_mem_init("dev-csr", sizeof(struct Csrs), &chaos->csr);
     share_mem_init("dev-dram", CHAOS_DEVICE_DRAM_SIZE, &chaos->dram);
+    launch_device(chaos);
 }
 
 static void chaos_chip_exit(ChaosState *chaos)
 {
+    // XXX: this function is never called on QEMU ends..
+    kill(chaos->devpid, SIGKILL);
+    wait(NULL);
     share_mem_exit(&chaos->dram);
     share_mem_exit(&chaos->csr);
 }
@@ -294,7 +324,7 @@ static uint64_t chaos_dram_read(void *opaque, hwaddr addr, unsigned size)
     ChaosState *chaos = opaque;
     void *base = chaos->dram.addr;
 
-    debug("[0x%02lx] -> 0x%08lx\n", addr, *(uint64_t *)(chaos->dram.addr + addr));
+    /* debug("[0x%02lx] -> 0x%08lx\n", addr, *(uint64_t *)(chaos->dram.addr + addr)); */
     switch (size) {
     case 1:
         return *((uint8_t*)(base + addr));
@@ -315,7 +345,7 @@ static void chaos_dram_write(void *opaque, hwaddr addr, uint64_t val,
     ChaosState *chaos = opaque;
     void *base = chaos->dram.addr;
 
-    debug("[0x%02lx] <- 0x%08lx\n", addr, val);
+    /* debug("[0x%02lx] <- 0x%08lx\n", addr, val); */
     switch (size) {
     case 1:
         *((uint8_t*)(base + addr)) = val;

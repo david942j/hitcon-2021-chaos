@@ -12,6 +12,7 @@ run: .PHONY
 build: qemu kernel fs
 
 qemu: .PHONY
+	$(MAKE) -C src/chaos
 	$(MAKE) -C src copy_qemu_src
 	$(MAKE) -C qemu -j `nproc`
 
