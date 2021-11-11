@@ -107,33 +107,69 @@ struct chaos_request {
 	uint32_t out_size;
 };
 
-#define VALID_ADDR_SIZE(chaos, addr, sz) do { \
-    g_assert((sz) <= chaos->dram.size); \
-    g_assert((addr) < chaos->dram.size); \
-    g_assert((addr) <= chaos->dram.size - (sz)); \
-} while (0)
+static inline void *VALID_ADDR_SIZE(ChaosState *chaos, uint32_t addr, uint32_t sz) {
+    g_assert(sz <= chaos->dram.size);
+    g_assert(addr < chaos->dram.size);
+    g_assert(addr <= chaos->dram.size - sz);
+    return chaos->dram.addr + addr;
+}
 
 static uint64_t real_index(uint64_t idx, uint64_t size)
 {
     return idx & (size - 1);
 }
 
-static int handle_cmd(ChaosState *chaos, struct chaos_mailbox_cmd *cmd)
+static inline uint8_t htoi(char c)
+{
+    return c >= 'a' ? (c - 'a' + 10) : c - '0';
+}
+static void do_md5(const void *in, uint32_t size, uint8_t *out)
+{
+    FILE *infile = fopen("/tmp/.chaos", "wb"), *pf;
+    char hex[33];
+    int i;
+
+    g_assert(size == fwrite(in, 1, size, infile));
+    fclose(infile);
+    pf = popen("md5sum /tmp/.chaos", "r");
+    g_assert(fscanf(pf, "%s", hex) == 1);
+    pclose(pf);
+    for (i = 0; i < 16; i++)
+        out[i] = (htoi(hex[2 * i]) << 4) + htoi(hex[2 * i + 1]);
+}
+
+static int handle_cmd_request(ChaosState *chaos, struct chaos_mailbox_cmd *cmd)
 {
     struct chaos_request *req;
+    void *in, *out;
 
     // XXX: the implementation here is bad, kernel is able to hack with TOCTOU
-    g_assert(cmd->code == CHAOS_CMD_CODE_REQUEST);
     g_assert(cmd->dma_size == sizeof(struct chaos_request));
-    VALID_ADDR_SIZE(chaos, cmd->dma_addr, cmd->dma_size);
-    req = chaos->dram.addr + cmd->dma_addr;
-    g_assert(req->algo == CHAOS_ALGO_ECHO);
-    VALID_ADDR_SIZE(chaos, req->input, req->in_size);
-    VALID_ADDR_SIZE(chaos, req->output, req->out_size);
+    req = VALID_ADDR_SIZE(chaos, cmd->dma_addr, cmd->dma_size);
+    in = VALID_ADDR_SIZE(chaos, req->input, req->in_size);
+    out = VALID_ADDR_SIZE(chaos, req->output, req->out_size);
 
-    // handles echo
-    memcpy(chaos->dram.addr + req->output, chaos->dram.addr + req->input, req->in_size);
-    return req->in_size;
+    switch (req->algo) {
+    case CHAOS_ALGO_ECHO:
+        memcpy(out, in, req->in_size);
+        return req->in_size;
+    case CHAOS_ALGO_MD5:
+        if (req->out_size < 0x10) {
+            // TODO: add logs?
+            return -EOVERFLOW;
+        }
+        do_md5(in, req->in_size, out);
+        return 0x10;
+    default:
+        g_assert(false);
+        return 0;
+    }
+}
+
+static int handle_cmd(ChaosState *chaos, struct chaos_mailbox_cmd *cmd)
+{
+    g_assert(cmd->code == CHAOS_CMD_CODE_REQUEST);
+    return handle_cmd_request(chaos, cmd);
 }
 
 static inline uint64_t queue_inc(uint64_t val, uint64_t size)

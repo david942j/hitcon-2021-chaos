@@ -100,10 +100,36 @@ static void test_request(void) {
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == 0x100);
   assert(memcmp(in, out, 0x100) == 0);
+  close(fd);
+  munmap(in, 0x1000);
+  munmap(out, 0x1000);
+}
+
+static void test_md5(void) {
+  int fd = OPEN();
+  struct chaos_request req = {
+    .algo = CHAOS_ALGO_MD5,
+    .input = 0,
+    .in_size = 20,
+    .output = 0x0,
+    .out_size = 0x1,
+  };
+  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 0x100);
+  u_int8_t *buf = mmap(0, 0x100, PROT_WRITE, MAP_SHARED, fd, 0);
+  assert(buf != MAP_FAILED);
+  for (int i = 0; i < req.in_size; i++)
+    buf[i] = i * i;
+  ASSERT_IOCTL_ERR(fd, CHAOS_REQUEST, &req, EPROTO);
+  req.out_size = 0x100;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == 0x10);
+  static const u_int8_t md5[] = { 223, 61, 195, 12, 93, 221, 69, 55, 239, 193, 1, 123, 88, 214, 210, 237 };
+  assert(memcmp(buf, md5, 0x10) == 0);
 }
 
 int main() {
   test_alloate_buffer();
   test_request();
+  test_md5();
   return 0;
 }
