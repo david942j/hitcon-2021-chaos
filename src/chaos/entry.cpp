@@ -14,7 +14,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <openssl/md5.h>
 
 #define CHECK assert
 
@@ -74,7 +76,11 @@ class Event {
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(fd_, &readfds);
-    int ret = select(fd_ + 1, &readfds, NULL, NULL, NULL);
+    struct timeval tval = { 30, 0 };
+    int ret = select(fd_ + 1, &readfds, NULL, NULL, &tval);
+    // kills itself after 30 secs without an interrupt, to prevent becoming zombies
+    if (ret == 0)
+        exit(0);
     CHECK(ret == 1);
     uint64_t dummy;
     ret = read(fd_, &dummy, sizeof(dummy));
@@ -172,23 +178,12 @@ static uint64_t real_index(uint64_t idx, uint64_t size)
     return idx & (size - 1);
 }
 
-static inline uint8_t htoi(char c)
-{
-    return c >= 'a' ? (c - 'a' + 10) : c - '0';
-}
 static void do_md5(const void *in, uint32_t size, uint8_t *out)
 {
-    FILE *infile = fopen("/tmp/.chaos", "wb"), *pf;
-    char hex[33];
-    int i;
-
-    CHECK(size == fwrite(in, 1, size, infile));
-    fclose(infile);
-    pf = popen("md5sum /tmp/.chaos", "r");
-    CHECK(fscanf(pf, "%s", hex) == 1);
-    pclose(pf);
-    for (i = 0; i < 16; i++)
-        out[i] = (htoi(hex[2 * i]) << 4) + htoi(hex[2 * i + 1]);
+    MD5_CTX ctx;
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, in, size);
+    MD5_Final(out, &ctx);
 }
 
 static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
@@ -207,12 +202,12 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
         memcpy(out, in, req->in_size);
         return req->in_size;
     case CHAOS_ALGO_MD5:
-        if (req->out_size < 0x10) {
+        if (req->out_size < MD5_DIGEST_LENGTH) {
             // TODO: add logs?
             return -EOVERFLOW;
         }
         do_md5(in, req->in_size, (uint8_t *)out);
-        return 0x10;
+        return MD5_DIGEST_LENGTH;
     default:
         CHECK(false);
         return 0;
@@ -267,10 +262,9 @@ void RunMain() {
   constexpr int kEventFdToHost = 6;
   Event from(kEventFdFromHost), to(kEventFdToHost);
 
+  // TODO: take the first event as firmware loading request
   while (1) {
-    fprintf(stderr, "Waiting..\n");
     from.WaitAndClear();
-    fprintf(stderr, "OAO!\n");
     // TODO: fork, jmp to Code and wait for exit syscall instead of handling mailbox in parent
     firmware::HandleMailbox();
     to.Trigger();
