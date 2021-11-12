@@ -1,4 +1,4 @@
 all: entry
 
 %: %.cpp
-	$(CXX) $^ -o $@ -O3
+	$(CXX) $^ -o $@ -std=c++17 -O3
