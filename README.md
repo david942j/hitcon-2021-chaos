@@ -4,7 +4,7 @@
 
 Do these once after cloned.
 ```
-$ sudo apt install libelf-dev
+$ sudo apt install libelf-dev ninja-build
 $ git submodule update --init
 $ make prepare
 ```
