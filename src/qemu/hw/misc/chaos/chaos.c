@@ -129,8 +129,8 @@ static void launch_device(ChaosState *chaos)
         dup_and_close(chaos->dram.fd, 4);
         dup_and_close(chaos->evtfd_to_dev, 5);
         dup_and_close(chaos->evtfd_from_dev, 6);
-        const char *const argv[] = { "entry", NULL };
-        execv("/home/david942j/hitcon-2021-chaos/src/chaos/entry", (char *const *)argv);
+        const char *const argv[] = { "sandbox", NULL };
+        execv("/home/david942j/hitcon-2021-chaos/src/chaos/sandbox", (char *const *)argv);
         g_assert(false);
     } else {
         debug("child = %d\n", pid);

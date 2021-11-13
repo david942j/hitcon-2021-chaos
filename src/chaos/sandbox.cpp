@@ -6,11 +6,14 @@
 
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/ptrace.h>
 #include <sys/select.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <cassert>
 #include <cerrno>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -257,6 +260,57 @@ void HandleMailbox() {
 
 namespace {
 
+struct ptrace_syscall_info {
+  uint8_t op;	/* PTRACE_SYSCALL_INFO_* */
+  uint32_t arch __attribute__((__aligned__(sizeof(uint32_t))));
+  uint64_t instruction_pointer;
+  uint64_t stack_pointer;
+  union {
+    struct {
+      uint64_t nr;
+      uint64_t args[6];
+    } entry;
+    struct {
+      int64_t rval;
+      uint8_t is_error;
+    } exit;
+    struct {
+      uint64_t nr;
+      uint64_t args[6];
+      uint32_t ret_data;
+    } seccomp;
+  };
+};
+
+#define SYS_exit 60
+#define SYS_exit_group 231
+void Sandboxing() {
+  pid_t pid = fork();
+  if (!pid) {
+    ptrace(PTRACE_TRACEME, 0, 0, 0);
+    raise(SIGSTOP);
+    // TODO: jmp to Code
+    firmware::HandleMailbox();
+    exit(0);
+  }
+  ptrace(PTRACE_SEIZE, pid, 0, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD);
+  int status;
+  wait(&status);
+  while (1) {
+    ptrace(PTRACE_SYSEMU, pid, 0, 0);
+    wait(&status);
+    if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP | 0x80) {
+      struct ptrace_syscall_info sys;
+      ptrace(PTRACE_GET_SYSCALL_INFO, pid, sizeof(sys), &sys);
+      fprintf(stderr, "op=%d 0x%x rip=0x%lx, NR=%ld\n", sys.op, sys.arch, sys.instruction_pointer, sys.entry.nr);
+      if (sys.entry.nr == SYS_exit || sys.entry.nr == SYS_exit_group)
+        break;
+    }
+  }
+  kill(pid, SIGKILL);
+  wait(&status);
+}
+
 void RunMain() {
   constexpr int kEventFdFromHost = 5;
   constexpr int kEventFdToHost = 6;
@@ -265,8 +319,7 @@ void RunMain() {
   // TODO: take the first event as firmware loading request
   while (1) {
     from.WaitAndClear();
-    // TODO: fork, jmp to Code and wait for exit syscall instead of handling mailbox in parent
-    firmware::HandleMailbox();
+    Sandboxing();
     to.Trigger();
   }
 }

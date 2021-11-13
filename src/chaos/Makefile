@@ -1,4 +1,4 @@
-all: entry
+all: sandbox
 
-entry: entry.cpp
+sandbox: sandbox.cpp
 	$(CXX) $^ -o $@ -std=c++17 -O3 -lcrypto
