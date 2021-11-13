@@ -40,6 +40,7 @@ struct share_mem {
 typedef struct {
     PCIDevice pdev;
     MemoryRegion mem_csrs, mem_dram;
+    QemuThread thread;
 
     struct share_mem csr, dram;
     pid_t devpid;
@@ -80,13 +81,6 @@ static void chaos_interrupt_to_device(ChaosState *chaos)
         ssize_t ret = write(chaos->evtfd_to_dev, &one, sizeof(one));
         g_assert(ret == sizeof(one));
     }
-    // TODO: move to thread
-    {
-        uint64_t dummy;
-        ssize_t ret = read(chaos->evtfd_from_dev, &dummy, sizeof(dummy));
-        g_assert(ret == sizeof(dummy));
-        chaos_raise_irq(chaos);
-    }
 }
 
 static void share_mem_init(const char *name, size_t size, struct share_mem *smem)
@@ -115,9 +109,17 @@ static void dup_and_close(int oldfd, int newfd)
     close(oldfd);
 }
 
+static pid_t devpid;
+static void kill_sandbox(void)
+{
+    if (devpid) {
+        kill(devpid, SIGKILL);
+        waitpid(devpid, NULL, 0);
+    }
+}
+
 static void launch_device(ChaosState *chaos)
 {
-    // TODO: create a thread for polling eventfd
     pid_t pid = fork();
     if (!pid) {
         close(0);
@@ -135,7 +137,45 @@ static void launch_device(ChaosState *chaos)
     } else {
         debug("child = %d\n", pid);
         chaos->devpid = pid;
+        devpid = pid;
+        // chaos_chip_exit() is not called on QEMU ends..
+        // A hacky way to prevent the child becoming a zombie.
+        atexit(kill_sandbox);
     }
+}
+
+/* returns true if event triggered */
+static bool wait_and_clear(int evtfd)
+{
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(evtfd, &readfds);
+    struct timeval tval = { 10, 0 };
+    int ret = select(evtfd + 1, &readfds, NULL, NULL, &tval);
+    if (ret == 0)
+        return false;
+    g_assert(ret == 1);
+    uint64_t dummy;
+    ret = read(evtfd, &dummy, sizeof(dummy));
+    g_assert(ret == sizeof(dummy));
+    return true;
+}
+
+static void *chaos_waiter(void *opaque)
+{
+    ChaosState *chaos = opaque;
+    int status = 0;
+
+    while (1) {
+        if (waitpid(chaos->devpid, &status, WNOHANG) == 0) {
+            if (wait_and_clear(chaos->evtfd_from_dev))
+                chaos_raise_irq(chaos);
+        } else if (WIFEXITED(status)) {
+            break;
+        }
+    }
+    debug("thread ends status=0x%x\n", status);
+    return NULL;
 }
 
 static void chaos_chip_init(ChaosState *chaos)
@@ -145,13 +185,16 @@ static void chaos_chip_init(ChaosState *chaos)
     chaos->evtfd_to_dev = eventfd(0, 0);
     chaos->evtfd_from_dev = eventfd(0, 0);
     launch_device(chaos);
+    qemu_thread_create(&chaos->thread, "chaos-waiter", chaos_waiter, chaos,
+                       QEMU_THREAD_JOINABLE);
 }
 
 static void chaos_chip_exit(ChaosState *chaos)
 {
-    // XXX: this function is not called on QEMU ends..
     kill(chaos->devpid, SIGKILL);
-    wait(NULL);
+    qemu_thread_join(&chaos->thread);
+    close(chaos->evtfd_from_dev);
+    close(chaos->evtfd_to_dev);
     share_mem_exit(&chaos->dram);
     share_mem_exit(&chaos->csr);
 }

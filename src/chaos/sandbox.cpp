@@ -21,7 +21,12 @@
 #include <cstring>
 #include <openssl/md5.h>
 
-#define CHECK assert
+#define CHECK(cond) do { \
+  if (!(cond)) { \
+    fprintf(stderr, "%s:%d: %s: \"%s\" failed.\n", __FILE__, __LINE__, __func__, #cond); \
+    _exit(2); \
+  } \
+} while (0)
 
 namespace {
 
@@ -247,6 +252,7 @@ void HandleMailbox() {
     struct chaos_mailbox_cmd *cmd;
     struct chaos_mailbox_rsp rsp;
 
+    while(1);
     if (head == tail)
         return;
     cmd = &cmdq[real_index(head, cmdq_size)];
@@ -293,15 +299,15 @@ void Sandboxing() {
     firmware::HandleMailbox();
     exit(0);
   }
-  ptrace(PTRACE_SEIZE, pid, 0, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD);
+  CHECK(ptrace(PTRACE_SEIZE, pid, 0, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD) == 0);
   int status;
-  wait(&status);
+  CHECK(wait(&status) == pid);
   while (1) {
-    ptrace(PTRACE_SYSEMU, pid, 0, 0);
-    wait(&status);
-    if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP | 0x80) {
+    CHECK(ptrace(PTRACE_SYSEMU, pid, 0, 0) == 0);
+    CHECK(wait(&status) == pid);
+    if (WIFSTOPPED(status) && WSTOPSIG(status) == (SIGTRAP | 0x80)) {
       struct ptrace_syscall_info sys;
-      ptrace(PTRACE_GET_SYSCALL_INFO, pid, sizeof(sys), &sys);
+      CHECK(ptrace(PTRACE_GET_SYSCALL_INFO, pid, sizeof(sys), &sys) <= sizeof(sys));
       fprintf(stderr, "op=%d 0x%x rip=0x%lx, NR=%ld\n", sys.op, sys.arch, sys.instruction_pointer, sys.entry.nr);
       if (sys.entry.nr == SYS_exit || sys.entry.nr == SYS_exit_group)
         break;
