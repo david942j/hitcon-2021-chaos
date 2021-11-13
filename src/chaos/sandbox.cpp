@@ -252,7 +252,6 @@ void HandleMailbox() {
     struct chaos_mailbox_cmd *cmd;
     struct chaos_mailbox_rsp rsp;
 
-    while(1);
     if (head == tail)
         return;
     cmd = &cmdq[real_index(head, cmdq_size)];
