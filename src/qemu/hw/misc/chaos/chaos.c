@@ -76,11 +76,10 @@ static void chaos_lower_irq(ChaosState *chaos)
 
 static void chaos_interrupt_to_device(ChaosState *chaos)
 {
-    {
-        uint64_t one = 1;
-        ssize_t ret = write(chaos->evtfd_to_dev, &one, sizeof(one));
-        g_assert(ret == sizeof(one));
-    }
+    const uint64_t one = 1;
+    ssize_t ret = write(chaos->evtfd_to_dev, &one, sizeof(one));
+
+    g_assert(ret == sizeof(one));
 }
 
 static void share_mem_init(const char *name, size_t size, struct share_mem *smem)
@@ -118,7 +117,7 @@ static void kill_sandbox(void)
     }
 }
 
-static void launch_device(ChaosState *chaos)
+static void launch_sandbox(ChaosState *chaos)
 {
     pid_t pid = fork();
     if (!pid) {
@@ -184,7 +183,7 @@ static void chaos_chip_init(ChaosState *chaos)
     share_mem_init("dev-dram", CHAOS_DEVICE_DRAM_SIZE, &chaos->dram);
     chaos->evtfd_to_dev = eventfd(0, 0);
     chaos->evtfd_from_dev = eventfd(0, 0);
-    launch_device(chaos);
+    launch_sandbox(chaos);
     qemu_thread_create(&chaos->thread, "chaos-waiter", chaos_waiter, chaos,
                        QEMU_THREAD_JOINABLE);
 }
