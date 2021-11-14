@@ -7,35 +7,18 @@
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
-#include <sys/user.h>
 #include <sys/select.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
-#include <cassert>
 #include <cerrno>
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
-#include <openssl/md5.h>
 
-#define DEBUG
-
-#ifdef DEBUG
-#define debug(fmt, ...) fprintf(stderr, "%s:%d: %s: " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__)
-#else
-#define debug(...)
-#endif
-
-#define CHECK(cond) do { \
-  if (!(cond)) { \
-    debug("check \"%s\" failed.\n", #cond); \
-    _exit(2); \
-  } \
-} while (0)
+#include "buffer.h"
+#include "check.h"
+#include "crypto.h"
+#include "inferior.h"
 
 namespace {
 
@@ -93,11 +76,7 @@ class Event {
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(fd_, &readfds);
-    struct timeval tval = { 30, 0 };
-    int ret = select(fd_ + 1, &readfds, NULL, NULL, &tval);
-    // kills itself after 30 secs without an interrupt, to prevent becoming zombies
-    if (ret == 0)
-        exit(0);
+    int ret = select(fd_ + 1, &readfds, NULL, NULL, NULL);
     CHECK(ret == 1);
     uint64_t dummy;
     ret = read(fd_, &dummy, sizeof(dummy));
@@ -112,92 +91,6 @@ class Event {
 
  private:
   int fd_;
-};
-
-class Inferior {
- public:
-  Inferior(pid_t pid) : pid_(pid), last_status_(0) {}
-  ~Inferior() {
-    kill(pid_, SIGKILL);
-    waitpid(pid_, NULL, 0);
-  }
-
-  void Attach() const {
-    CHECK(ptrace(PTRACE_SEIZE, pid_, 0, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD) == 0);
-    CHECK(waitpid(pid_, NULL, 0) == pid_);
-  }
-
-  bool WaitForSys() {
-    CHECK(ptrace(PTRACE_SYSEMU, pid_, 0, 0) == 0);
-    CHECK(waitpid(pid_, &last_status_, 0) == pid_);
-    return WIFSTOPPED(last_status_) && WSTOPSIG(last_status_) == (SIGTRAP | 0x80);
-  }
-
-  bool Read(uint8_t *ptr, uint32_t uptr, uint32_t size) const {
-    for (uint32_t i = 0; i < size; i += sizeof(uint64_t)) {
-      uint64_t data = ptrace(PTRACE_PEEKDATA, pid_, uptr + i, 0);
-      *reinterpret_cast<uint64_t*>(ptr + i) = data;
-      debug("[0x%x] = %lx\n", uptr + i, data);
-    }
-    return true;
-  }
-
-  bool Write(uint8_t *ptr, uint32_t uptr, uint32_t size) const {
-    for (uint32_t i = 0; i < size; i += sizeof(uint64_t)) {
-      if (ptrace(PTRACE_POKEDATA, pid_, uptr + i, *reinterpret_cast<uint64_t*>(ptr + i)))
-        return false;
-      debug("[0x%x] = %lx\n", uptr + i, *reinterpret_cast<uint64_t*>(ptr + i));
-    }
-    return true;
-  }
-
-  int lastStatus() const { return last_status_; }
-
- private:
-  pid_t pid_;
-  int last_status_;
-};
-
-class Buffer {
- public:
-  Buffer(uint32_t size) : ptr_(nullptr), size_(size) {
-    debug("called %x\n", size_);
-  }
-  ~Buffer() {
-    debug("called %x\n", size_);
-    if (ptr_)
-      delete ptr_;
-  }
-
-  bool FromUser(Inferior &inferior, uint32_t uptr) {
-    if (!ptr_ && !Allocate())
-      return false;
-    return inferior.Read(ptr_, uptr, size_);
-  }
-
-  bool ToUser(Inferior &inferior, uint32_t uptr) {
-    CHECK(ptr_);
-    return inferior.Write(ptr_, uptr, size_);
-  }
-
-  bool Allocate() {
-    if (ptr_)
-      return false;
-    if (size_ == 0 || size_ > 0x100000)
-      return false;
-    // NOTE: can be a bug if size_ is not word-aligned
-    // PEEKUSER can overflow
-    ptr_ = new uint8_t[size_ + 8];
-    if (!ptr_)
-      return false;
-    return true;
-  }
-  uint8_t *ptr() const { return ptr_; }
-  uint32_t size() const { return size_; }
-
- private:
-  uint8_t *ptr_;
-  uint32_t size_;
 };
 
 constexpr int kCsrFd = 3;
@@ -216,7 +109,6 @@ MemoryRegion Stack(kStackBase, kStackSize, PROT_READ | PROT_WRITE);
 
 } // namespace
 
-#define SYS_chaos_crypto 0xc8a05
 // TODO: move to "firmware"
 namespace firmware {
 
@@ -282,6 +174,7 @@ static uint64_t real_index(uint64_t idx, uint64_t size)
     return idx & (size - 1);
 }
 
+#define SYS_chaos_crypto 0xc8a05
 static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
 {
     struct chaos_request *req;
@@ -298,7 +191,7 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
         memcpy(out, in, req->in_size);
         return req->in_size;
     case CHAOS_ALGO_MD5:
-        if (req->out_size < MD5_DIGEST_LENGTH) {
+        if (req->out_size < 0x10) {
             // TODO: add logs?
             return -EOVERFLOW;
         }
@@ -350,48 +243,9 @@ void HandleMailbox() {
 
 } // namespace firmware
 
-namespace crypto {
-
-Buffer MD5(const Buffer &inb) {
-  Buffer out(MD5_DIGEST_LENGTH);
-  CHECK(out.Allocate());
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, inb.ptr(), inb.size());
-  MD5_Final(out.ptr(), &ctx);
-  return out;
-}
-
-}
-
 namespace {
 
-struct ptrace_syscall_info {
-  uint8_t op;	/* PTRACE_SYSCALL_INFO_* */
-  uint32_t arch __attribute__((__aligned__(sizeof(uint32_t))));
-  uint64_t instruction_pointer;
-  uint64_t stack_pointer;
-  union {
-    struct {
-      uint64_t nr;
-      uint64_t args[6];
-    } entry;
-    struct {
-      int64_t rval;
-      uint8_t is_error;
-    } exit;
-    struct {
-      uint64_t nr;
-      uint64_t args[6];
-      uint32_t ret_data;
-    } seccomp;
-  };
-};
-
-#define SYS_exit 60
-#define SYS_exit_group 231
-
-long HandleCryptoCall(Inferior &inferior, uint64_t *args) {
+long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
   switch (args[0]) {
   case firmware::CHAOS_ALGO_MD5: {
     uint32_t in = args[1];
@@ -424,16 +278,13 @@ bool Sandboxing() {
   inferior.Attach();
   while (1) {
     if (inferior.WaitForSys()) {
-      struct ptrace_syscall_info sys;
-      CHECK(ptrace(PTRACE_GET_SYSCALL_INFO, pid, sizeof(sys), &sys) <= sizeof(sys));
-      debug("op=%d 0x%x rip=0x%lx, NR=%ld\n", sys.op, sys.arch, sys.instruction_pointer, sys.entry.nr);
-      if (sys.entry.nr == SYS_chaos_crypto) {
-        auto res = HandleCryptoCall(inferior, sys.entry.args);
+      if (inferior.IsSysCrpyto()) {
+        auto res = HandleCryptoCall(inferior, inferior.sysargs());
         debug("HandleCryptoCall returned %ld\n", res);
-        CHECK(ptrace(PTRACE_POKEUSER, pid, offsetof(struct user_regs_struct, rax), res) == 0);
-      } else if (sys.entry.nr == SYS_exit || sys.entry.nr == SYS_exit_group) {
-        debug("firmware exited with %ld\n", sys.entry.args[0]);
-        return sys.entry.args[0] == 0;
+        inferior.SetSyscallRet(res);
+      } else if (inferior.IsExit()) {
+        debug("firmware exited with %ld\n", inferior.sysargs()[0]);
+        return inferior.sysargs()[0] == 0;
       }
     } else {
       debug("firmware crashed with 0x%x\n", inferior.lastStatus());
