@@ -83,10 +83,9 @@ class Event {
     CHECK(ret == sizeof(dummy));
   }
 
-  void Trigger() const {
-    uint64_t one;
-    int ret = write(fd_, &one, sizeof(one));
-    CHECK(ret == sizeof(one));
+  void Trigger(uint64_t val = 1) const {
+    int ret = write(fd_, &val, sizeof(val));
+    CHECK(ret == sizeof(val));
   }
 
  private:
@@ -143,12 +142,12 @@ struct chaos_request {
 };
 
 struct Csrs {
-    uint64_t version; /* R */
+    uint64_t load_addr; /* W */
+    uint64_t fw_size; /* R */
     uint64_t cmdq_addr; /* RW */
     uint64_t rspq_addr; /* RW */
     uint64_t cmdq_size; /* RW */
     uint64_t rspq_size; /* RW */
-    uint64_t reset; /* W */
     uint64_t irq_status; /* R */
     uint64_t clear_irq; /* W */
     uint64_t cmd_sent; /* W */
@@ -293,12 +292,42 @@ bool Sandboxing() {
   }
 }
 
+void VerifyResult(int res) {
+  CSR.Write64(0, (1ull << 63) | res);
+}
+
+#define SIGN_LENGTH (1024 / 8)
+struct ImageHeader {
+  uint32_t size; // image size without header
+  uint8_t signature[SIGN_LENGTH];
+  uint8_t code[];
+};
+
+void VerifyFirmware() {
+  uint32_t off = CSR.Read64(0);
+  uint32_t size = CSR.Read64(8);
+  ImageHeader *image = reinterpret_cast<ImageHeader*>(DRAM.at(off));
+  ImageHeader header;
+
+  if (size <= sizeof(ImageHeader))
+    return VerifyResult(-EINVAL);
+  header = *image;
+  if (header.size + sizeof(header) != size)
+    return VerifyResult(-EINVAL);
+  Buffer inb(image->code, header.size);
+  Buffer hsh(crypto::SHA256(inb));
+  // TODO
+  VerifyResult(0);
+}
+
 void RunMain() {
   constexpr int kEventFdFromHost = 5;
   constexpr int kEventFdToHost = 6;
   Event from(kEventFdFromHost), to(kEventFdToHost);
 
-  // TODO: take the first event as firmware loading request
+  from.WaitAndClear();
+  VerifyFirmware();
+  to.Trigger(0x1337);
   while (1) {
     from.WaitAndClear();
     if (Sandboxing())

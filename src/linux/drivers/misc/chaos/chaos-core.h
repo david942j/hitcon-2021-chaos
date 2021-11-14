@@ -30,19 +30,19 @@ struct chaos_device {
 };
 
 struct chaos_csrs {
-	uint64_t version; /* R */
-	uint64_t cmdq_addr; /* RW */
-	uint64_t rspq_addr; /* RW */
-	uint64_t cmdq_size; /* RW */
-	uint64_t rspq_size; /* RW */
-	uint64_t reset; /* W */
-	uint64_t irq_status; /* R */
-	uint64_t clear_irq; /* W */
-	uint64_t cmd_sent; /* W */
-	uint64_t cmd_head; /* R */
-	uint64_t cmd_tail; /* W */
-	uint64_t rsp_head; /* W */
-	uint64_t rsp_tail; /* R */
+	uint64_t load_addr;
+	uint64_t fw_size;
+	uint64_t cmdq_addr;
+	uint64_t rspq_addr;
+	uint64_t cmdq_size;
+	uint64_t rspq_size;
+	uint64_t irq_status;
+	uint64_t clear_irq;
+	uint64_t cmd_sent;
+	uint64_t cmd_head;
+	uint64_t cmd_tail;
+	uint64_t rsp_head;
+	uint64_t rsp_tail;
 	uint64_t reserved[3];
 };
 

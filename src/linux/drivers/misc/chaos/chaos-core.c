@@ -6,11 +6,42 @@
  */
 
 #include <linux/err.h>
+#include <linux/firmware.h>
+#include <linux/minmax.h>
+#include <linux/sizes.h>
 
 #include "chaos-core.h"
 #include "chaos-dram.h"
 #include "chaos-fs.h"
 #include "chaos-mailbox.h"
+
+static int chaos_request_firmware(struct chaos_device *cdev)
+{
+	const struct firmware *fw;
+	struct chaos_resource res;
+	const size_t size = SZ_1M;
+	uint64_t retval;
+	int ret;
+
+	ret = chaos_dram_alloc(cdev->dpool, size, &res);
+	if (ret)
+		return ret;
+	ret = request_firmware_into_buf(&fw, "chaos", cdev->dev, res.vaddr, size);
+	if (ret)
+		goto out_dram_free;
+	CHAOS_WRITE(cdev, fw_size, min(size, fw->size));
+	CHAOS_WRITE(cdev, load_addr, CHAOS_DRAM_OFFSET(cdev->dpool, &res));
+	retval = CHAOS_READ(cdev, load_addr);
+	if (retval & (1ull << 63))
+		ret = retval ^ (1ull << 63);
+	else
+		ret = -ETIMEDOUT; /* bootloader unresponsive */
+
+	release_firmware(fw);
+out_dram_free:
+	chaos_dram_free(cdev->dpool, &res);
+	return ret;
+}
 
 int chaos_init(struct chaos_device *cdev)
 {
@@ -21,6 +52,11 @@ int chaos_init(struct chaos_device *cdev)
 		ret = PTR_ERR(cdev->dpool);
 		dev_err(cdev->dev, "DRAM pool init failed: %d\n", ret);
 		return ret;
+	}
+	ret = chaos_request_firmware(cdev);
+	if (ret) {
+		dev_err(cdev->dev, "firmware loading failed: %d\n", ret);
+		goto err_dram_exit;
 	}
 	cdev->mbox = chaos_mailbox_init(cdev);
 	if (IS_ERR(cdev->mbox)) {

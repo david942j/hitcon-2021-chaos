@@ -7,9 +7,9 @@ mount -t devtmpfs none /dev
 mount -t proc none /proc
 mount -t sysfs none /sys
 
-dmesg -n 1
 insmod chaos.ko
 chmod 0666 /dev/chaos
+dmesg -n 1
 
 timeout -s KILL 60 setsid cttyhack su -s /tests/go.sh user
 

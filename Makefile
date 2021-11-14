@@ -12,7 +12,7 @@ run: .PHONY
 build: qemu kernel fs
 
 qemu: .PHONY
-	$(MAKE) -C src/chaos
+	$(MAKE) -C src/chaos sandbox
 	$(MAKE) -C src copy_qemu_src
 	$(MAKE) -C qemu -j `nproc`
 
@@ -23,6 +23,8 @@ kernel: .PHONY
 	$(MAKE) INIT="$(INIT)" fs
 
 fs: .PHONY
+	$(MAKE) -C src/chaos firmware
+	cp src/chaos/firmware rootfs/lib/firmware/chaos
 	cp $(INIT) rootfs/init && chmod +x rootfs/init
 	cd rootfs && find . | cpio -o -Hnewc | gzip -9 > ../rootfs.cpio.gz
 

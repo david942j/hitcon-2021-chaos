@@ -9,17 +9,23 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 #include "check.h"
 #include "inferior.h"
 
 class Buffer {
  public:
+  Buffer(const uint8_t *from, uint32_t& size) : Buffer(size) {
+    if (Allocate())
+      memcpy(ptr_, from, size_);
+  }
+
   Buffer(uint32_t size) : ptr_(nullptr), size_(size) {
-    debug("called %x\n", size_);
+    debug("size 0x%x\n", size_);
   }
   ~Buffer() {
-    debug("called %x\n", size_);
+    debug("size 0x%x\n", size_);
     if (ptr_)
       delete ptr_;
   }

@@ -7,6 +7,7 @@
 #include "crypto.h"
 
 #include <openssl/md5.h>
+#include <openssl/sha.h>
 
 #include "buffer.h"
 
@@ -19,6 +20,16 @@ Buffer MD5(const Buffer &inb) {
   MD5_Init(&ctx);
   MD5_Update(&ctx, inb.ptr(), inb.size());
   MD5_Final(out.ptr(), &ctx);
+  return out;
+}
+
+Buffer SHA256(const Buffer &inb) {
+  Buffer out(SHA256_DIGEST_LENGTH);
+  CHECK(out.Allocate());
+  SHA256_CTX ctx;
+  SHA256_Init(&ctx);
+  SHA256_Update(&ctx, inb.ptr(), inb.size());
+  SHA256_Final(out.ptr(), &ctx);
   return out;
 }
 

@@ -8,3 +8,4 @@ modules.order
 *.mod.*
 /rootfs/init
 /rootfs/tests
+/rootfs/lib/firmware/chaos

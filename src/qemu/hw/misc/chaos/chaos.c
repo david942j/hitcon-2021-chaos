@@ -48,15 +48,16 @@ typedef struct {
     pid_t devpid;
     int evtfd_to_dev, evtfd_from_dev;
     const char *sandbox_path;
+    bool fw_checked;
 } ChaosState;
 
 struct Csrs {
-    uint64_t version; /* R */
+    uint64_t load_addr; /* W */
+    uint64_t fw_size; /* W */
     uint64_t cmdq_addr; /* RW */
     uint64_t rspq_addr; /* RW */
     uint64_t cmdq_size; /* RW */
     uint64_t rspq_size; /* RW */
-    uint64_t reset; /* W */
     uint64_t irq_status; /* R */
     uint64_t clear_irq; /* W */
     uint64_t cmd_sent; /* W */
@@ -147,7 +148,7 @@ static void launch_sandbox(ChaosState *chaos)
 }
 
 /* returns true if event triggered */
-static bool wait_and_clear(int evtfd)
+static bool wait_and_clear(ChaosState *chaos, int evtfd)
 {
     fd_set readfds;
     FD_ZERO(&readfds);
@@ -160,6 +161,10 @@ static bool wait_and_clear(int evtfd)
     uint64_t dummy;
     ret = read(evtfd, &dummy, sizeof(dummy));
     g_assert(ret == sizeof(dummy));
+    if (dummy >= 0x1337) {
+        chaos->fw_checked = true;
+        return false;
+    }
     return true;
 }
 
@@ -170,7 +175,7 @@ static void *chaos_waiter(void *opaque)
 
     while (1) {
         if (waitpid(chaos->devpid, &status, WNOHANG) == 0) {
-            if (wait_and_clear(chaos->evtfd_from_dev))
+            if (wait_and_clear(chaos, chaos->evtfd_from_dev))
                 chaos_raise_irq(chaos);
         } else if (WIFEXITED(status)) {
             break;
@@ -182,6 +187,7 @@ static void *chaos_waiter(void *opaque)
 
 static void chaos_chip_init(ChaosState *chaos)
 {
+    chaos->fw_checked = false;
     share_mem_init("dev-csr", sizeof(struct Csrs), &chaos->csr);
     share_mem_init("dev-dram", CHAOS_DEVICE_DRAM_SIZE, &chaos->dram);
     chaos->evtfd_to_dev = eventfd(0, 0);
@@ -204,12 +210,19 @@ static void chaos_chip_exit(ChaosState *chaos)
 static uint64_t chaos_csr_read(void *opaque, hwaddr addr, unsigned size)
 {
     ChaosState *chaos = opaque;
+    uint64_t val;
 
     if (addr >= sizeof(struct Csrs) || (addr & 7))
         return 0;
 
-    debug("[0x%02lx] -> 0x%08lx\n", addr, *(uint64_t *)(chaos->csr.addr + addr));
-    return *(uint64_t *)(chaos->csr.addr + addr);
+    if (addr == offsetof(struct Csrs, load_addr)) {
+        /* wait until waiter marks bootloader ready */
+        while (!chaos->fw_checked)
+            usleep(50000);
+    }
+    val = *(uint64_t *)(chaos->csr.addr + addr);
+    debug("[0x%02lx] -> 0x%08lx\n", addr, val);
+    return val;
 }
 
 static void chaos_csr_write(void *opaque, hwaddr addr, uint64_t val,
@@ -227,6 +240,9 @@ static void chaos_csr_write(void *opaque, hwaddr addr, uint64_t val,
         return;
     case offsetof(struct Csrs, clear_irq):
         return chaos_lower_irq(chaos);
+    case offsetof(struct Csrs, load_addr):
+        *(uint64_t *)(chaos->csr.addr + addr) = val;
+        return chaos_interrupt_to_device(chaos);
     default:
         *(uint64_t *)(chaos->csr.addr + addr) = val;
     }
