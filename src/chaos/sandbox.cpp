@@ -42,6 +42,7 @@ class MemoryRegion {
   }
 
   inline uint64_t size() const { return size_; }
+  inline void *base() const { return base_; }
 
   uint64_t Read64(uint64_t offset) const {
     CHECK(offset <= size_ - 8);
@@ -108,145 +109,17 @@ MemoryRegion Stack(kStackBase, kStackSize, PROT_READ | PROT_WRITE);
 
 } // namespace
 
-// TODO: move to "firmware"
-namespace firmware {
-
-enum chaos_command_code {
-	CHAOS_CMD_CODE_REQUEST,
-};
-
-struct chaos_mailbox_cmd {
-    uint32_t seq;
-    enum chaos_command_code code;
-    uint32_t dma_addr;
-    uint32_t dma_size;
-};
-
-struct chaos_mailbox_rsp {
-    uint32_t seq;
-    uint32_t retval;
-};
+namespace {
 
 enum chaos_request_algo {
-	/* copy input to output, for testing purpose */
-	CHAOS_ALGO_ECHO,
-	CHAOS_ALGO_MD5,
+  /* copy input to output, for testing purpose */
+  CHAOS_ALGO_ECHO,
+  CHAOS_ALGO_MD5,
 };
-
-struct chaos_request {
-	enum chaos_request_algo algo;
-	uint32_t input;
-	uint32_t in_size;
-	uint32_t output;
-	uint32_t out_size;
-};
-
-struct Csrs {
-    uint64_t load_addr; /* W */
-    uint64_t fw_size; /* R */
-    uint64_t cmdq_addr; /* RW */
-    uint64_t rspq_addr; /* RW */
-    uint64_t cmdq_size; /* RW */
-    uint64_t rspq_size; /* RW */
-    uint64_t irq_status; /* R */
-    uint64_t clear_irq; /* W */
-    uint64_t cmd_sent; /* W */
-    uint64_t cmd_head; /* R */
-    uint64_t cmd_tail; /* W */
-    uint64_t rsp_head; /* W */
-    uint64_t rsp_tail; /* R */
-    uint64_t reserved[3];
-};
-
-#define READ_CSR(field) CSR.Read64(offsetof(Csrs, field))
-#define WRITE_CSR(field, val) CSR.Write64(offsetof(Csrs, field), val)
-
-static inline void *VALID_ADDR_SIZE(uint32_t addr, uint32_t sz) {
-    CHECK(sz <= DRAM.size());
-    CHECK(addr < DRAM.size());
-    CHECK(addr <= DRAM.size() - sz);
-    return DRAM.at(addr);
-}
-
-static uint64_t real_index(uint64_t idx, uint64_t size)
-{
-    return idx & (size - 1);
-}
-
-#define SYS_chaos_crypto 0xc8a05
-static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
-{
-    struct chaos_request *req;
-    void *in, *out;
-
-    // XXX: the implementation here is bad, kernel is able to hack with TOCTOU
-    CHECK(cmd->dma_size == sizeof(struct chaos_request));
-    req = (chaos_request*)VALID_ADDR_SIZE(cmd->dma_addr, cmd->dma_size);
-    in = VALID_ADDR_SIZE(req->input, req->in_size);
-    out = VALID_ADDR_SIZE(req->output, req->out_size);
-
-    switch (req->algo) {
-    case CHAOS_ALGO_ECHO:
-        memcpy(out, in, req->in_size);
-        return req->in_size;
-    case CHAOS_ALGO_MD5:
-        if (req->out_size < 0x10) {
-            // TODO: add logs?
-            return -EOVERFLOW;
-        }
-        return syscall(SYS_chaos_crypto, CHAOS_ALGO_MD5, in, req->in_size, out);
-    default:
-        CHECK(false);
-        return 0;
-    }
-}
-
-static int handle_cmd(struct chaos_mailbox_cmd *cmd)
-{
-    CHECK(cmd->code == CHAOS_CMD_CODE_REQUEST);
-    return handle_cmd_request(cmd);
-}
-
-static inline uint64_t queue_inc(uint64_t val, uint64_t size)
-{
-    return (++val) & ((size << 1) - 1);
-}
-
-static void push_rsp(struct chaos_mailbox_rsp *rsp)
-{
-    struct chaos_mailbox_rsp *queue = static_cast<chaos_mailbox_rsp*>(DRAM.at(READ_CSR(rspq_addr)));
-    const uint64_t rspq_size = READ_CSR(rspq_size);
-    uint64_t tail = READ_CSR(rsp_tail);
-
-    queue[real_index(tail, rspq_size)] = *rsp;
-    WRITE_CSR(rsp_tail, queue_inc(tail, rspq_size));
-}
-
-
-void HandleMailbox() {
-    const uint64_t cmdq_size = READ_CSR(cmdq_size);
-    uint64_t head = READ_CSR(cmd_head);
-    uint64_t tail = READ_CSR(cmd_tail);
-    struct chaos_mailbox_cmd *cmdq = static_cast<chaos_mailbox_cmd*>(DRAM.at(READ_CSR(cmdq_addr)));
-    struct chaos_mailbox_cmd *cmd;
-    struct chaos_mailbox_rsp rsp;
-
-    if (head == tail)
-        return;
-    cmd = &cmdq[real_index(head, cmdq_size)];
-    WRITE_CSR(cmd_head, queue_inc(head, cmdq_size));
-    rsp.retval = handle_cmd(cmd);
-    rsp.seq = cmd->seq;
-    push_rsp(&rsp);
-}
-
-} // namespace firmware
-
-namespace {
 
 long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
   switch (args[0]) {
-  case firmware::CHAOS_ALGO_MD5: {
+  case CHAOS_ALGO_MD5: {
     uint32_t in = args[1];
     uint32_t in_size = args[2];
     uint32_t out = args[3];
@@ -268,13 +141,13 @@ bool Sandboxing() {
   if (!pid) {
     ptrace(PTRACE_TRACEME, 0, 0, 0);
     raise(SIGSTOP);
-    // TODO: jmp to Code
-    firmware::HandleMailbox();
-    exit(0);
+    // shouldn't reach here
+    _exit(3);
   }
 
   Inferior inferior(pid);
   inferior.Attach();
+  inferior.SetContext(Code.base(), Stack.base() + Stack.size());
   while (1) {
     if (inferior.WaitForSys()) {
       if (inferior.IsSysCrpyto()) {
@@ -312,11 +185,12 @@ void VerifyFirmware() {
   if (size <= sizeof(ImageHeader))
     return VerifyResult(-EINVAL);
   header = *image;
-  if (header.size + sizeof(header) != size)
+  if (header.size + sizeof(header) != size || header.size > Code.size())
     return VerifyResult(-EINVAL);
   Buffer inb(image->code, header.size);
   Buffer hsh(crypto::SHA256(inb));
-  // TODO
+  // TODO: verify the signature
+  memcpy(Code.at(0), inb.ptr(), inb.size());
   VerifyResult(0);
 }
 

@@ -21,6 +21,7 @@ class Inferior {
   ~Inferior();
 
   void Attach() const;
+  void SetContext(void *pc, void *stk) const;
 
   bool WaitForSys();
   void SetSyscallRet(long retval) const;

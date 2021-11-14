@@ -27,6 +27,15 @@ void Inferior::Attach() const {
   CHECK(waitpid(pid_, nullptr, 0) == pid_);
 }
 
+void Inferior::SetContext(void *pc, void *stk) const {
+  struct user_regs_struct regs;
+  CHECK(ptrace(PTRACE_GETREGS, pid_, 0, &regs) == 0);
+  debug("%p %p\n", pc, stk);
+  regs.rip = reinterpret_cast<uint64_t>(pc);
+  regs.rsp = reinterpret_cast<uint64_t>(stk);
+  CHECK(ptrace(PTRACE_SETREGS, pid_, 0, &regs) == 0);
+}
+
 bool Inferior::WaitForSys() {
   CHECK(ptrace(PTRACE_SYSEMU, pid_, 0, 0) == 0);
   CHECK(waitpid(pid_, &last_status_, 0) == pid_);

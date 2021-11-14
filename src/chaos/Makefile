@@ -10,5 +10,6 @@ sandbox: $(OBJ)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 firmware: .PHONY
-	python3 -c "open('firmware','wb').write(__import__('struct').pack('I',1)+b'a'*128+b'A')"
+	$(MAKE) -C firmware
+
 .PHONY:
