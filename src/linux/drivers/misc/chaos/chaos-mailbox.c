@@ -149,7 +149,7 @@ int chaos_mailbox_request(struct chaos_mailbox *mbox, struct chaos_request *req)
 		return ret;
 	/* FW returned an error */
 	if ((int)retval < 0) {
-		dev_dbg(mbox->cdev->dev, "%s: fw returns an error: %d", __func__, (int)retval);
+		dev_err(mbox->cdev->dev, "%s: fw returns an error: %d", __func__, (int)retval);
 		return -EPROTO;
 	}
 	req->out_size = retval;
