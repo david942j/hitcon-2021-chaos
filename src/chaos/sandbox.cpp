@@ -41,9 +41,6 @@ class MemoryRegion {
     munmap(base_, size_);
   }
 
-  inline uint64_t size() const { return size_; }
-  inline void *base() const { return base_; }
-
   uint64_t Read64(uint64_t offset) const {
     CHECK(offset <= size_ - 8);
     return *static_cast<uint64_t *>(base_ + offset);
@@ -58,6 +55,10 @@ class MemoryRegion {
       CHECK(offset < size_);
       return base_ + offset;
   }
+
+  inline uint64_t size() const { return size_; }
+  inline void *base() const { return base_; }
+  inline void *end() const { return base_ + size_; }
 
  private:
   void *base_;
@@ -107,10 +108,6 @@ MemoryRegion DRAM(kDramFd, kDramBase);
 MemoryRegion Code(kCodeBase, kCodeSize, PROT_READ | PROT_WRITE | PROT_EXEC);
 MemoryRegion Stack(kStackBase, kStackSize, PROT_READ | PROT_WRITE);
 
-} // namespace
-
-namespace {
-
 enum chaos_request_algo {
   /* copy input to output, for testing purpose */
   CHAOS_ALGO_ECHO,
@@ -147,7 +144,7 @@ bool Sandboxing() {
 
   Inferior inferior(pid);
   inferior.Attach();
-  inferior.SetContext(Code.base(), Stack.base() + Stack.size());
+  inferior.SetContext(Code.base(), Stack.end());
   while (1) {
     if (inferior.WaitForSys()) {
       if (inferior.IsSysCrpyto()) {

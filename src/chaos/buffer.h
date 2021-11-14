@@ -25,7 +25,7 @@ class Buffer {
     debug("size 0x%x\n", size_);
   }
   ~Buffer() {
-    debug("size 0x%x\n", size_);
+    debug("size 0x%x ptr %p\n", size_, ptr_);
     if (ptr_)
       delete ptr_;
   }
