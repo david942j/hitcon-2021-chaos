@@ -7,6 +7,7 @@
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#include <sys/user.h>
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -21,9 +22,17 @@
 #include <cstring>
 #include <openssl/md5.h>
 
+#define DEBUG
+
+#ifdef DEBUG
+#define debug(fmt, ...) fprintf(stderr, "%s:%d: %s: " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#else
+#define debug(...)
+#endif
+
 #define CHECK(cond) do { \
   if (!(cond)) { \
-    fprintf(stderr, "%s:%d: %s: \"%s\" failed.\n", __FILE__, __LINE__, __func__, #cond); \
+    debug("check \"%s\" failed.\n", #cond); \
     _exit(2); \
   } \
 } while (0)
@@ -105,6 +114,92 @@ class Event {
   int fd_;
 };
 
+class Inferior {
+ public:
+  Inferior(pid_t pid) : pid_(pid), last_status_(0) {}
+  ~Inferior() {
+    kill(pid_, SIGKILL);
+    waitpid(pid_, NULL, 0);
+  }
+
+  void Attach() const {
+    CHECK(ptrace(PTRACE_SEIZE, pid_, 0, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD) == 0);
+    CHECK(waitpid(pid_, NULL, 0) == pid_);
+  }
+
+  bool WaitForSys() {
+    CHECK(ptrace(PTRACE_SYSEMU, pid_, 0, 0) == 0);
+    CHECK(waitpid(pid_, &last_status_, 0) == pid_);
+    return WIFSTOPPED(last_status_) && WSTOPSIG(last_status_) == (SIGTRAP | 0x80);
+  }
+
+  bool Read(uint8_t *ptr, uint32_t uptr, uint32_t size) const {
+    for (uint32_t i = 0; i < size; i += sizeof(uint64_t)) {
+      uint64_t data = ptrace(PTRACE_PEEKDATA, pid_, uptr + i, 0);
+      *reinterpret_cast<uint64_t*>(ptr + i) = data;
+      debug("[0x%x] = %lx\n", uptr + i, data);
+    }
+    return true;
+  }
+
+  bool Write(uint8_t *ptr, uint32_t uptr, uint32_t size) const {
+    for (uint32_t i = 0; i < size; i += sizeof(uint64_t)) {
+      if (ptrace(PTRACE_POKEDATA, pid_, uptr + i, *reinterpret_cast<uint64_t*>(ptr + i)))
+        return false;
+      debug("[0x%x] = %lx\n", uptr + i, *reinterpret_cast<uint64_t*>(ptr + i));
+    }
+    return true;
+  }
+
+  int lastStatus() const { return last_status_; }
+
+ private:
+  pid_t pid_;
+  int last_status_;
+};
+
+class Buffer {
+ public:
+  Buffer(uint32_t size) : ptr_(nullptr), size_(size) {
+    debug("called %x\n", size_);
+  }
+  ~Buffer() {
+    debug("called %x\n", size_);
+    if (ptr_)
+      delete ptr_;
+  }
+
+  bool FromUser(Inferior &inferior, uint32_t uptr) {
+    if (!ptr_ && !Allocate())
+      return false;
+    return inferior.Read(ptr_, uptr, size_);
+  }
+
+  bool ToUser(Inferior &inferior, uint32_t uptr) {
+    CHECK(ptr_);
+    return inferior.Write(ptr_, uptr, size_);
+  }
+
+  bool Allocate() {
+    if (ptr_)
+      return false;
+    if (size_ == 0 || size_ > 0x100000)
+      return false;
+    // NOTE: can be a bug if size_ is not word-aligned
+    // PEEKUSER can overflow
+    ptr_ = new uint8_t[size_ + 8];
+    if (!ptr_)
+      return false;
+    return true;
+  }
+  uint8_t *ptr() const { return ptr_; }
+  uint32_t size() const { return size_; }
+
+ private:
+  uint8_t *ptr_;
+  uint32_t size_;
+};
+
 constexpr int kCsrFd = 3;
 constexpr int kDramFd = 4;
 constexpr uint64_t kCsrBase   = 0x00010000;
@@ -121,6 +216,7 @@ MemoryRegion Stack(kStackBase, kStackSize, PROT_READ | PROT_WRITE);
 
 } // namespace
 
+#define SYS_chaos_crypto 0xc8a05
 // TODO: move to "firmware"
 namespace firmware {
 
@@ -186,14 +282,6 @@ static uint64_t real_index(uint64_t idx, uint64_t size)
     return idx & (size - 1);
 }
 
-static void do_md5(const void *in, uint32_t size, uint8_t *out)
-{
-    MD5_CTX ctx;
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, in, size);
-    MD5_Final(out, &ctx);
-}
-
 static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
 {
     struct chaos_request *req;
@@ -214,8 +302,7 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
             // TODO: add logs?
             return -EOVERFLOW;
         }
-        do_md5(in, req->in_size, (uint8_t *)out);
-        return MD5_DIGEST_LENGTH;
+        return syscall(SYS_chaos_crypto, CHAOS_ALGO_MD5, in, req->in_size, out);
     default:
         CHECK(false);
         return 0;
@@ -263,6 +350,20 @@ void HandleMailbox() {
 
 } // namespace firmware
 
+namespace crypto {
+
+Buffer MD5(const Buffer &inb) {
+  Buffer out(MD5_DIGEST_LENGTH);
+  CHECK(out.Allocate());
+  MD5_CTX ctx;
+  MD5_Init(&ctx);
+  MD5_Update(&ctx, inb.ptr(), inb.size());
+  MD5_Final(out.ptr(), &ctx);
+  return out;
+}
+
+}
+
 namespace {
 
 struct ptrace_syscall_info {
@@ -289,7 +390,27 @@ struct ptrace_syscall_info {
 
 #define SYS_exit 60
 #define SYS_exit_group 231
-void Sandboxing() {
+
+long HandleCryptoCall(Inferior &inferior, uint64_t *args) {
+  switch (args[0]) {
+  case firmware::CHAOS_ALGO_MD5: {
+    uint32_t in = args[1];
+    uint32_t in_size = args[2];
+    uint32_t out = args[3];
+    Buffer inb(in_size);
+    if (!inb.FromUser(inferior, in))
+      return -EFAULT;
+    Buffer outb(crypto::MD5(inb));
+    if (!outb.ToUser(inferior, out))
+      return -EFAULT;
+    return outb.size();
+  }
+  default:
+    return -ENOSYS;
+  }
+}
+
+bool Sandboxing() {
   pid_t pid = fork();
   if (!pid) {
     ptrace(PTRACE_TRACEME, 0, 0, 0);
@@ -298,22 +419,27 @@ void Sandboxing() {
     firmware::HandleMailbox();
     exit(0);
   }
-  CHECK(ptrace(PTRACE_SEIZE, pid, 0, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD) == 0);
-  int status;
-  CHECK(wait(&status) == pid);
+
+  Inferior inferior(pid);
+  inferior.Attach();
   while (1) {
-    CHECK(ptrace(PTRACE_SYSEMU, pid, 0, 0) == 0);
-    CHECK(wait(&status) == pid);
-    if (WIFSTOPPED(status) && WSTOPSIG(status) == (SIGTRAP | 0x80)) {
+    if (inferior.WaitForSys()) {
       struct ptrace_syscall_info sys;
       CHECK(ptrace(PTRACE_GET_SYSCALL_INFO, pid, sizeof(sys), &sys) <= sizeof(sys));
-      fprintf(stderr, "op=%d 0x%x rip=0x%lx, NR=%ld\n", sys.op, sys.arch, sys.instruction_pointer, sys.entry.nr);
-      if (sys.entry.nr == SYS_exit || sys.entry.nr == SYS_exit_group)
-        break;
+      debug("op=%d 0x%x rip=0x%lx, NR=%ld\n", sys.op, sys.arch, sys.instruction_pointer, sys.entry.nr);
+      if (sys.entry.nr == SYS_chaos_crypto) {
+        auto res = HandleCryptoCall(inferior, sys.entry.args);
+        debug("HandleCryptoCall returned %ld\n", res);
+        CHECK(ptrace(PTRACE_POKEUSER, pid, offsetof(struct user_regs_struct, rax), res) == 0);
+      } else if (sys.entry.nr == SYS_exit || sys.entry.nr == SYS_exit_group) {
+        debug("firmware exited with %ld\n", sys.entry.args[0]);
+        return sys.entry.args[0] == 0;
+      }
+    } else {
+      debug("firmware crashed with 0x%x\n", inferior.lastStatus());
+      return false;
     }
   }
-  kill(pid, SIGKILL);
-  wait(&status);
 }
 
 void RunMain() {
@@ -324,8 +450,8 @@ void RunMain() {
   // TODO: take the first event as firmware loading request
   while (1) {
     from.WaitAndClear();
-    Sandboxing();
-    to.Trigger();
+    if (Sandboxing())
+      to.Trigger();
   }
 }
 

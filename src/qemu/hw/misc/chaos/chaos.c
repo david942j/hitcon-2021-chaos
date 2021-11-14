@@ -133,14 +133,14 @@ static void launch_sandbox(ChaosState *chaos)
         const char *const argv[] = { "sandbox", NULL };
         execv("/home/david942j/hitcon-2021-chaos/src/chaos/sandbox", (char *const *)argv);
         g_assert(false);
-    } else {
-        debug("child = %d\n", pid);
-        chaos->devpid = pid;
-        devpid = pid;
-        // chaos_chip_exit() is not called on QEMU ends..
-        // A hacky way to prevent the child becoming a zombie.
-        atexit(kill_sandbox);
     }
+    debug("child = %d\n", pid);
+    g_assert(pid > 0);
+    chaos->devpid = pid;
+    devpid = pid;
+    // chaos_chip_exit() is not called on QEMU ends..
+    // A hacky way to prevent the child becoming a zombie.
+    atexit(kill_sandbox);
 }
 
 /* returns true if event triggered */
