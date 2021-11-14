@@ -7,6 +7,7 @@
 #include "qemu/osdep.h"
 
 #include <signal.h>
+#include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -15,6 +16,7 @@
 
 #include "exec/memory.h"
 #include "hw/pci/pci.h"
+#include "qapi/error.h"
 
 #define DEBUG
 
@@ -45,6 +47,7 @@ typedef struct {
     struct share_mem csr, dram;
     pid_t devpid;
     int evtfd_to_dev, evtfd_from_dev;
+    const char *sandbox_path;
 } ChaosState;
 
 struct Csrs {
@@ -131,7 +134,7 @@ static void launch_sandbox(ChaosState *chaos)
         dup_and_close(chaos->evtfd_to_dev, 5);
         dup_and_close(chaos->evtfd_from_dev, 6);
         const char *const argv[] = { "sandbox", NULL };
-        execv("/home/david942j/hitcon-2021-chaos/src/chaos/sandbox", (char *const *)argv);
+        execv(chaos->sandbox_path, (char *const *)argv);
         g_assert(false);
     }
     debug("child = %d\n", pid);
@@ -329,6 +332,26 @@ static void chaos_instance_init(Object *obj)
 {
 }
 
+static void chaos_set_sandbox(Object *obj, const char *value, Error **errp)
+{
+    ChaosState *chaos = CHAOS(obj);
+
+    if (access(value, X_OK) == 0) {
+        chaos->sandbox_path = realpath(value, NULL);
+    } else {
+        error_setg(errp, "Sandbox file is not executable.");
+    }
+}
+
+static char *chaos_get_sandbox(Object *obj, Error **errp)
+{
+    ChaosState *chaos = CHAOS(obj);
+
+    if (!chaos->sandbox_path)
+        return g_strdup("none");
+    return g_strdup(chaos->sandbox_path);
+}
+
 static void chaos_class_init(ObjectClass *class, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(class);
@@ -341,6 +364,12 @@ static void chaos_class_init(ObjectClass *class, void *data)
     pdc->revision = 1;
     pdc->class_id = PCI_CLASS_OTHERS;
     set_bit(DEVICE_CATEGORY_MISC, dc->categories);
+
+    object_class_property_add_str(class, "sandbox", chaos_get_sandbox,
+                                  chaos_set_sandbox);
+    object_class_property_set_description(class, "sandbox",
+                                          "Set the path to the sandbox.");
+
 }
 
 static void chaos_register_types(void)

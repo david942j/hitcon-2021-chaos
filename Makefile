@@ -4,7 +4,7 @@ all: build run
 
 run: .PHONY
 	qemu/build/qemu-system-x86_64 -kernel linux/arch/x86_64/boot/bzImage \
-		-device chaos \
+		-device chaos,sandbox=./src/chaos/sandbox \
 		-initrd rootfs.cpio.gz -m 512 \
 		-monitor none -nographic \
 		-append "console=ttyS0 kaslr panic=-1" -no-reboot
