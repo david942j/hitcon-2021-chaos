@@ -4,7 +4,7 @@ OBJ = sandbox.o inferior.o crypto.o
 
 all: sandbox firmware
 sandbox: $(OBJ)
-	$(CXX) -o $@ $^ $(CXXFLAGS) -lcrypto
+	$(CXX) -o $@ $^ $(CXXFLAGS) -lcrypto -lgmp
 
 %.o: %.cpp $(DEPS)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)

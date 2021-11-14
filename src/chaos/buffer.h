@@ -16,7 +16,7 @@
 
 class Buffer {
  public:
-  Buffer(const uint8_t *from, uint32_t& size) : Buffer(size) {
+  Buffer(const uint8_t *from, uint32_t size) : Buffer(size) {
     if (Allocate())
       memcpy(ptr_, from, size_);
   }
@@ -53,6 +53,25 @@ class Buffer {
       return false;
     return true;
   }
+
+  bool ValueEq(const Buffer &other) const {
+    if (size_ < other.size()) return other.ValueEq(*this);
+    if (memcmp(ptr_, other.ptr(), other.size()))
+      return false;
+    for (uint32_t i = other.size(); i < size_; i++)
+      if (ptr_[i])
+        return false;
+    return true;
+  }
+
+#ifdef DEBUG
+  void Dump(const char *name) const {
+    fprintf(stderr, "%s: ", name);
+    for (int i = 0; i < size_; i++)
+      fprintf(stderr, "%02x", ptr_[i]);
+    fprintf(stderr, "\n");
+  }
+#endif
 
   inline uint8_t *ptr() const { return ptr_; }
   inline uint32_t size() const { return size_; }
