@@ -24,6 +24,7 @@ kernel: .PHONY
 
 fs: .PHONY
 	$(MAKE) -C src/chaos firmware
+	mkdir -p rootfs/lib/firmware
 	cp src/chaos/firmware/firmware.bin.signed rootfs/lib/firmware/chaos
 	cp $(INIT) rootfs/init && chmod +x rootfs/init
 	cd rootfs && find . | cpio -o -Hnewc | gzip -9 > ../rootfs.cpio.gz
