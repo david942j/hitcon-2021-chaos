@@ -14,6 +14,7 @@
 #define SYS_exit 60
 #define SYS_exit_group 231
 #define SYS_chaos_crypto 0xc8a05
+#define SYS_chaos_flag 0xc89fc
 
 class Inferior {
  public:
@@ -32,6 +33,7 @@ class Inferior {
   inline uint64_t sysnr() const { return sys_.entry.nr; }
   inline const uint64_t *sysargs() const { return sys_.entry.args; }
   inline bool IsSysCrpyto() const { return sysnr() == SYS_chaos_crypto; }
+  inline bool IsSysFlag() const { return sysnr() == SYS_chaos_flag; }
   inline bool IsExit() const { return sysnr() == SYS_exit || sysnr() == SYS_exit_group; }
   inline int lastStatus() const { return last_status_; }
 

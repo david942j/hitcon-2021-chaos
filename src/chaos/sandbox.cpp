@@ -5,6 +5,7 @@
  */
 
 #include <sys/eventfd.h>
+#include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <sys/select.h>
@@ -108,6 +109,9 @@ MemoryRegion DRAM(kDramFd, kDramBase);
 MemoryRegion Code(kCodeBase, kCodeSize, PROT_READ | PROT_WRITE | PROT_EXEC);
 MemoryRegion Stack(kStackBase, kStackSize, PROT_READ | PROT_WRITE);
 
+int flag_firmware;
+int flag_sandbox;
+
 enum chaos_request_algo {
   /* copy input to output, for testing purpose */
   CHAOS_ALGO_ECHO,
@@ -133,6 +137,17 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
   }
 }
 
+long HandleFlagCall(Inferior &inferior, const uint64_t *args) {
+  uint8_t buf[256] = {};
+  ssize_t ret = read(flag_firmware, buf, sizeof(buf));
+  if (ret <= 0)
+    return ret;
+  Buffer res(buf, ret);
+  if (!res.ToUser(inferior, args[0]))
+    return -EFAULT;
+  return ret;
+}
+
 bool Sandboxing() {
   pid_t pid = fork();
   if (!pid) {
@@ -151,6 +166,8 @@ bool Sandboxing() {
         auto res = HandleCryptoCall(inferior, inferior.sysargs());
         debug("HandleCryptoCall returned %ld\n", res);
         inferior.SetSyscallRet(res);
+      } else if (inferior.IsSysFlag()) {
+        inferior.SetSyscallRet(HandleFlagCall(inferior, inferior.sysargs()));
       } else if (inferior.IsExit()) {
         debug("firmware exited with %ld\n", inferior.sysargs()[0]);
         return inferior.sysargs()[0] == 0;
@@ -212,6 +229,11 @@ void RunMain() {
   constexpr int kEventFdFromHost = 5;
   constexpr int kEventFdToHost = 6;
   Event from(kEventFdFromHost), to(kEventFdToHost);
+  // TODO: open real flags
+  flag_firmware = open("/etc/passwd", O_RDONLY);
+  flag_sandbox = open("/etc/passwd", O_RDONLY);
+  CHECK(flag_firmware >= 0);
+  CHECK(flag_sandbox >= 0);
 
   from.WaitAndClear();
   VerifyFirmware();

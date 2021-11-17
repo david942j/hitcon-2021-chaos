@@ -67,7 +67,7 @@ class Buffer {
 #ifdef DEBUG
   void Dump(const char *name) const {
     fprintf(stderr, "%s: ", name);
-    for (int i = 0; i < size_; i++)
+    for (uint32_t i = 0; i < size_; i++)
       fprintf(stderr, "%02x", ptr_[i]);
     fprintf(stderr, "\n");
   }

@@ -41,7 +41,7 @@ bool Inferior::WaitForSys() {
   CHECK(waitpid(pid_, &last_status_, 0) == pid_);
   if (!(WIFSTOPPED(last_status_) && WSTOPSIG(last_status_) == (SIGTRAP | 0x80)))
     return false;
-  CHECK(ptrace(PTRACE_GET_SYSCALL_INFO, pid_, sizeof(sys_), &sys_) <= sizeof(sys_));
+  CHECK((unsigned long)ptrace(PTRACE_GET_SYSCALL_INFO, pid_, sizeof(sys_), &sys_) <= sizeof(sys_));
   debug("op=%d 0x%x rip=0x%lx, NR=%ld\n", sys_.op, sys_.arch, sys_.instruction_pointer, sys_.entry.nr);
   return true;
 }
