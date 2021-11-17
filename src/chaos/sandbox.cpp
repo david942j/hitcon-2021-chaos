@@ -20,6 +20,7 @@
 #include "check.h"
 #include "crypto.h"
 #include "inferior.h"
+#include "seccomp.h"
 
 namespace {
 
@@ -234,6 +235,7 @@ void RunMain() {
   flag_sandbox = open("/etc/passwd", O_RDONLY);
   CHECK(flag_firmware >= 0);
   CHECK(flag_sandbox >= 0);
+  install_seccomp();
 
   from.WaitAndClear();
   VerifyFirmware();

@@ -1,0 +1,27 @@
+A = arch
+A == ARCH_X86_64 ? next : dead
+A = sys_number
+A >= 0x40000000 ? dead : next
+A == read ? ok : next
+A == write ? ok : next
+A == close ? ok : next
+A == mmap ? ok : next
+A == munmap ? ok : next
+A == brk ? ok : next
+A == clone ? ok : next
+A == ptrace ? ok : next
+A == wait4 ? ok : next
+A == set_robust_list ? ok : next
+A == rt_sigprocmask ? ok : next
+A == getpid ? ok : next
+A == gettid ? ok : next
+A == kill ? ok : next
+A == tgkill ? ok : next
+A == select ? ok : next
+A == exit ? ok : next
+A == exit_group ? ok : next
+return KILL
+ok:
+return ALLOW
+dead:
+return KILL
