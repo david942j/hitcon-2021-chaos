@@ -17,6 +17,12 @@ Buffer SHA256(const Buffer &inb);
 
 Buffer RSA_encrypt(const Buffer &N, const Buffer &E, const Buffer &inb);
 
+Buffer RSA_decrypt(const Buffer &N, const Buffer &D, const Buffer &inb);
+
+Buffer AES_encrypt(const Buffer &key, const Buffer &iv, const Buffer &inb);
+
+Buffer AES_decrypt(const Buffer &key, const Buffer &iv, const Buffer &inb);
+
 }
 
 #endif // _CRYPTO_H

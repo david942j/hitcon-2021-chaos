@@ -7,6 +7,7 @@
 #include "crypto.h"
 
 #include <gmp.h>
+#include <openssl/evp.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 
@@ -54,6 +55,34 @@ Buffer RSA_encrypt(const Buffer &N, const Buffer &E, const Buffer &inb) {
     mpz_clear(result);
     mpz_clear(in);
     return out;
+}
+
+Buffer AES_encrypt(const Buffer &key, const Buffer &iv, const Buffer &inb) {
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  Buffer outb(4 + inb.size() + EVP_CIPHER_block_size(EVP_aes_256_cbc()));
+  CHECK(outb.Allocate());
+  int size1, size2;
+  EVP_CIPHER_CTX_init(ctx);
+  EVP_EncryptInit(ctx, EVP_aes_256_cbc(), key.ptr(), iv.ptr());
+  EVP_EncryptUpdate(ctx, outb.ptr() + 4, &size1, inb.ptr(), inb.size());
+  EVP_EncryptFinal(ctx, outb.ptr() + 4 + size1, &size2);
+  *((int*)outb.ptr()) = size1 + size2;
+  EVP_CIPHER_CTX_free(ctx);
+  return outb;
+}
+
+Buffer AES_decrypt(const Buffer &key, const Buffer &iv, const Buffer &inb) {
+  Buffer outb(inb.size());
+  CHECK(outb.Allocate());
+  int size1, size2;
+  int size = *((int*)inb.ptr());
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  EVP_CIPHER_CTX_init(ctx);
+  EVP_DecryptInit(ctx, EVP_aes_256_cbc(), key.ptr(), iv.ptr());
+  EVP_DecryptUpdate(ctx, outb.ptr(), &size1, inb.ptr() + 4, size);
+  EVP_DecryptFinal(ctx, outb.ptr() + size1, &size2);
+  EVP_CIPHER_CTX_free(ctx);
+  return outb;
 }
 
 }
