@@ -7,12 +7,12 @@
 #include "crypto.h"
 
 #include <gmp.h>
-#include <openssl/evp.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 
 #include "buffer.h"
 #include "cipher/aes.h"
+#include "cipher/rc4.h"
 
 namespace crypto {
 
@@ -69,6 +69,20 @@ Buffer AES_decrypt(const Buffer &key, const Buffer &inb) {
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
   aes::decrypt(key.ptr(), inb.ptr(), outb.ptr());
+  return outb;
+}
+
+Buffer RC4_encrypt(const Buffer &key, const Buffer &inb) {
+  Buffer outb(inb.size());
+  CHECK(outb.Allocate());
+  rc4::encrypt(key.ptr(), key.size(), inb.ptr(), inb.size(), outb.ptr());
+  return outb;
+}
+
+Buffer RC4_decrypt(const Buffer &key, const Buffer &inb) {
+  Buffer outb(inb.size());
+  CHECK(outb.Allocate());
+  rc4::decrypt(key.ptr(), key.size(), inb.ptr(), inb.size(), outb.ptr());
   return outb;
 }
 

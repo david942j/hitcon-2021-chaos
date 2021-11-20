@@ -1,5 +1,10 @@
+/*
+ * CHAOS - CryptograpHy AcceleratOr Silicon
+ *
+ * Copyright (c) 2021 lyc
+ */
+
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 
 namespace aes {
