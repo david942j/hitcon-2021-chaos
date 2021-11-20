@@ -14,6 +14,7 @@
 #include "cipher/aes.h"
 #include "cipher/rc4.h"
 #include "cipher/rsa.h"
+#include "cipher/blowfish.h"
 
 namespace crypto {
 
@@ -69,6 +70,20 @@ Buffer RC4_decrypt(const Buffer &key, const Buffer &inb) {
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
   rc4::decrypt(key.ptr(), key.size(), inb.ptr(), inb.size(), outb.ptr());
+  return outb;
+}
+
+Buffer BLOWFISH_encrypt(const Buffer &key, const Buffer &inb) {
+  Buffer outb(inb.size());
+  CHECK(outb.Allocate());
+  blowfish::encrypt((uint32_t*)key.ptr(), key.size()/4, (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
+  return outb;
+}
+
+Buffer BLOWFISH_decrypt(const Buffer &key, const Buffer &inb) {
+  Buffer outb(inb.size());
+  CHECK(outb.Allocate());
+  blowfish::decrypt((uint32_t*)key.ptr(), key.size()/4, (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
   return outb;
 }
 

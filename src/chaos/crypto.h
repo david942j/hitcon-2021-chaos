@@ -27,6 +27,10 @@ Buffer RC4_encrypt(const Buffer &key, const Buffer &inb);
 
 Buffer RC4_decrypt(const Buffer &key, const Buffer &inb);
 
+Buffer BLOWFISH_encrypt(const Buffer &key, const Buffer &inb);
+
+Buffer BLOWFISH_decrypt(const Buffer &key, const Buffer &inb);
+
 }
 
 #endif // _CRYPTO_H
