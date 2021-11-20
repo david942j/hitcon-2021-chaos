@@ -6,13 +6,14 @@
 
 #include "crypto.h"
 
-#include <gmp.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 
+#include "check.h"
 #include "buffer.h"
 #include "cipher/aes.h"
 #include "cipher/rc4.h"
+#include "cipher/rsa.h"
 
 namespace crypto {
 
@@ -38,23 +39,8 @@ Buffer SHA256(const Buffer &inb) {
 
 Buffer RSA_encrypt(const Buffer &N, const Buffer &E, const Buffer &inb) {
     Buffer out(N.size());
-    size_t size;
     CHECK(out.Allocate());
-    mpz_t in, result, e, n;
-    mpz_init(in);
-    mpz_init(result);
-    mpz_init(e);
-    mpz_init(n);
-    mpz_import(in, inb.size(), -1, 1, 0, 0, inb.ptr());
-    mpz_import(e, E.size(), -1, 1, 0, 0, E.ptr());
-    mpz_import(n, N.size(), -1, 1, 0, 0, N.ptr());
-    mpz_powm(result, in, e, n);
-    mpz_export(out.ptr(), &size, -1, 1, 0, 0, result);
-    CHECK(size <= out.size());
-    mpz_clear(n);
-    mpz_clear(e);
-    mpz_clear(result);
-    mpz_clear(in);
+    rsa::encrypt(N.ptr(), N.size(), E.ptr(), E.size(), inb.ptr(), inb.size(), out.ptr());
     return out;
 }
 

@@ -1,4 +1,3 @@
-
 /*
  * CHAOS - CryptograpHy AcceleratOr Silicon
  *
