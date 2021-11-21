@@ -18,7 +18,7 @@
 #include "hw/pci/pci.h"
 #include "qapi/error.h"
 
-#define DEBUG
+/* #define DEBUG */
 
 #ifdef DEBUG
 #define debug(fmt, ...) fprintf(stderr, "%s:%d %s: " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__)

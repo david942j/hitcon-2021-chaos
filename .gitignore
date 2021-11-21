@@ -9,3 +9,8 @@ modules.order
 /rootfs/init
 /rootfs/tests
 /rootfs/lib/firmware/chaos
+/release/*.gz
+/release/bzImage
+/release/pc-bios
+/release/qemu-*
+/release/sandbox
