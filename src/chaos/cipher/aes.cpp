@@ -18,10 +18,10 @@ uint8_t invsbox[256] = {0x52,0x09,0x6a,0xd5,0x30,0x36,0xa5,0x38,0xbf,0x40,0xa3,0
 uint8_t rc[32] = {0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1B,0x36,0x6C,0xD8,0xAB,0x4D,0x9A,0x2F,0x5E,0xBC,0x63,0xc6,0x97,0x35,0x6A,0xD4,0xB3,0x7D,0xFA,0xEF,0xC5};
 
 constexpr int kRound = 10;
-constexpr int kBlockSize = 16;
+using aes::kBlockSize;
 
 void setRoundKey(uint8_t *key, uint8_t roundkey[kRound + 1][kBlockSize]){
-  for (int i = 0; i < kBlockSize; i++) {
+  for (size_t i = 0; i < kBlockSize; i++) {
     roundkey[0][i] = key[i];
   }
   for (int i = 1; i <= kRound; i++) {
@@ -37,7 +37,7 @@ void setRoundKey(uint8_t *key, uint8_t roundkey[kRound + 1][kBlockSize]){
     for (int j = 0; j < 4; j++) {
       roundkey[i][j] = roundkey[i - 1][j] ^ tmp[j];
     }
-    for (int j = 4; j < kBlockSize; j++) {
+    for (size_t j = 4; j < kBlockSize; j++) {
       roundkey[i][j] = roundkey[i - 1][j] ^ roundkey[i][j - 4];
     }
   }
@@ -56,11 +56,11 @@ void encrypt(uint8_t *key, uint8_t *inb, uint8_t *outb) {
   uint8_t roundkey[kRound + 1][kBlockSize];
   setRoundKey(key, roundkey);
   memcpy(outb, inb, kBlockSize);
-  for (int i = 0; i < kBlockSize; i++) {
+  for (size_t i = 0; i < kBlockSize; i++) {
     outb[i] ^= roundkey[0][i];
   }
   for (int r = 1; r <= kRound; r++) {
-    for (int i = 0; i < kBlockSize; i++)
+    for (size_t i = 0; i < kBlockSize; i++)
       outb[i] = sbox[outb[i]];
     uint8_t tmp;
     tmp = outb[1]; outb[1] = outb[5]; outb[5] = outb[9]; outb[9] = outb[13]; outb[13] = tmp;
@@ -79,7 +79,7 @@ void encrypt(uint8_t *key, uint8_t *inb, uint8_t *outb) {
         outb[4 * i + 3] = multi(2, poly[3]) ^ multi(3, poly[0]) ^ poly[1] ^ poly[2];
       }
     }
-    for (int i = 0; i < kBlockSize; i++) {
+    for (size_t i = 0; i < kBlockSize; i++) {
       outb[i] ^= roundkey[r][i];
     }
   }
@@ -90,7 +90,7 @@ void decrypt(uint8_t *key, uint8_t *inb, uint8_t *outb) {
   setRoundKey(key, roundkey);
   memcpy(outb, inb, kBlockSize);
   for (int r = kRound; r >= 1; r--) {
-    for (int i = 0; i < kBlockSize; i++) {
+    for (size_t i = 0; i < kBlockSize; i++) {
       outb[i] ^= roundkey[r][i];
     }
     if (r != kRound){
@@ -110,11 +110,11 @@ void decrypt(uint8_t *key, uint8_t *inb, uint8_t *outb) {
     tmp = outb[2]; outb[2] = outb[10]; outb[10] = tmp;
     tmp = outb[6]; outb[6] = outb[14]; outb[14] = tmp;
     tmp = outb[3]; outb[3] = outb[7]; outb[7] = outb[11]; outb[11] = outb[15]; outb[15] = tmp;
-    for (int i = 0; i < kBlockSize; i++) {
+    for (size_t i = 0; i < kBlockSize; i++) {
       outb[i] = invsbox[outb[i]];
     }
   }
-  for (int i = 0; i < kBlockSize; i++) {
+  for (size_t i = 0; i < kBlockSize; i++) {
     outb[i] ^= roundkey[0][i];
   }
 }

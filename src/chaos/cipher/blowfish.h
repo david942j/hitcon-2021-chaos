@@ -10,10 +10,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#define BLOWFISH_BLOCK_SIZE 8
-#define BLOWFISH_MAX_KEY_LENGTH 56
-
 namespace blowfish {
+
+constexpr size_t kBlockSize = 8;
+constexpr size_t kMaxKeyLength = 56;
 
 void encrypt(uint32_t *key, size_t klen, uint32_t *inb, uint32_t *outb);
 

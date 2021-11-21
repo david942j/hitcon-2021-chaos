@@ -47,19 +47,19 @@ Buffer RSA_encrypt(const Buffer &N, const Buffer &E, const Buffer &inb) {
 }
 
 Buffer AES_encrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() == aes::kKeyLength);
+  CHECK(inb.size() <= aes::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
-  CHECK(key.size() == AES_KEY_LENGTH);
-  CHECK(inb.size() <= AES_BLOCK_SIZE);
   aes::encrypt(key.ptr(), inb.ptr(), outb.ptr());
   return outb;
 }
 
 Buffer AES_decrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() == aes::kKeyLength);
+  CHECK(inb.size() <= aes::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
-  CHECK(key.size() == AES_KEY_LENGTH);
-  CHECK(inb.size() <= AES_BLOCK_SIZE);
   aes::decrypt(key.ptr(), inb.ptr(), outb.ptr());
   return outb;
 }
@@ -79,22 +79,24 @@ Buffer RC4_decrypt(const Buffer &key, const Buffer &inb) {
 }
 
 Buffer BLOWFISH_encrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() % sizeof(uint32_t) == 0);
+  CHECK(0 < key.size() && key.size() <= blowfish::kMaxKeyLength);
+  CHECK(inb.size() % sizeof(uint32_t) == 0);
+  CHECK(inb.size() <= blowfish::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
-  CHECK(key.size() % 4 == 0);
-  CHECK(key.size() <= BLOWFISH_MAX_KEY_LENGTH);
-  CHECK(inb.size() <= BLOWFISH_BLOCK_SIZE);
-  blowfish::encrypt((uint32_t*)key.ptr(), key.size()/4, (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
+  blowfish::encrypt((uint32_t*)key.ptr(), key.size() / sizeof(uint32_t), (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
   return outb;
 }
 
 Buffer BLOWFISH_decrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() % sizeof(uint32_t) == 0);
+  CHECK(0 < key.size() && key.size() <= blowfish::kMaxKeyLength);
+  CHECK(inb.size() % sizeof(uint32_t) == 0);
+  CHECK(inb.size() <= blowfish::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
-  CHECK(key.size() % 4 == 0);
-  CHECK(key.size() <= BLOWFISH_MAX_KEY_LENGTH);
-  CHECK(inb.size() <= BLOWFISH_BLOCK_SIZE);
-  blowfish::decrypt((uint32_t*)key.ptr(), key.size()/4, (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
+  blowfish::decrypt((uint32_t*)key.ptr(), key.size() / sizeof(uint32_t), (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
   return outb;
 }
 
