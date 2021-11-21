@@ -41,6 +41,7 @@ Buffer SHA256(const Buffer &inb) {
 Buffer RSA_encrypt(const Buffer &N, const Buffer &E, const Buffer &inb) {
     Buffer out(N.size());
     CHECK(out.Allocate());
+    CHECK(inb.size() <= N.size());
     rsa::encrypt(N.ptr(), N.size(), E.ptr(), E.size(), inb.ptr(), inb.size(), out.ptr());
     return out;
 }
@@ -48,6 +49,8 @@ Buffer RSA_encrypt(const Buffer &N, const Buffer &E, const Buffer &inb) {
 Buffer AES_encrypt(const Buffer &key, const Buffer &inb) {
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
+  CHECK(key.size() == AES_KEY_LENGTH);
+  CHECK(inb.size() <= AES_BLOCK_SIZE);
   aes::encrypt(key.ptr(), inb.ptr(), outb.ptr());
   return outb;
 }
@@ -55,6 +58,8 @@ Buffer AES_encrypt(const Buffer &key, const Buffer &inb) {
 Buffer AES_decrypt(const Buffer &key, const Buffer &inb) {
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
+  CHECK(key.size() == AES_KEY_LENGTH);
+  CHECK(inb.size() <= AES_BLOCK_SIZE);
   aes::decrypt(key.ptr(), inb.ptr(), outb.ptr());
   return outb;
 }
@@ -76,6 +81,9 @@ Buffer RC4_decrypt(const Buffer &key, const Buffer &inb) {
 Buffer BLOWFISH_encrypt(const Buffer &key, const Buffer &inb) {
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
+  CHECK(key.size() % 4 == 0);
+  CHECK(key.size() <= BLOWFISH_MAX_KEY_LENGTH);
+  CHECK(inb.size() <= BLOWFISH_BLOCK_SIZE);
   blowfish::encrypt((uint32_t*)key.ptr(), key.size()/4, (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
   return outb;
 }
@@ -83,6 +91,9 @@ Buffer BLOWFISH_encrypt(const Buffer &key, const Buffer &inb) {
 Buffer BLOWFISH_decrypt(const Buffer &key, const Buffer &inb) {
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
+  CHECK(key.size() % 4 == 0);
+  CHECK(key.size() <= BLOWFISH_MAX_KEY_LENGTH);
+  CHECK(inb.size() <= BLOWFISH_BLOCK_SIZE);
   blowfish::decrypt((uint32_t*)key.ptr(), key.size()/4, (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
   return outb;
 }
