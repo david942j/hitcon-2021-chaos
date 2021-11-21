@@ -9,12 +9,12 @@
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 
-#include "check.h"
 #include "buffer.h"
+#include "check.h"
 #include "cipher/aes.h"
+#include "cipher/blowfish.h"
 #include "cipher/rc4.h"
 #include "cipher/rsa.h"
-#include "cipher/blowfish.h"
 
 namespace crypto {
 

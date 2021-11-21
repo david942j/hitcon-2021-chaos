@@ -4,6 +4,8 @@
  * Copyright (c) 2021 lyc
  */
 
+#include "aes.h"
+
 #include <cstdint>
 #include <cstring>
 
