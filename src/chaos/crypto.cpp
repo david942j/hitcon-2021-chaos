@@ -39,19 +39,19 @@ Buffer SHA256(const Buffer &inb) {
 }
 
 Buffer RSA_encrypt(const Buffer &N, const Buffer &E, const Buffer &inb) {
-    Buffer out(N.size());
-    CHECK(out.Allocate());
-    CHECK(inb.size() <= N.size());
-    rsa::encrypt(N.ptr(), N.size(), E.ptr(), E.size(), inb.ptr(), inb.size(), out.ptr());
-    return out;
+  Buffer out(N.size());
+  CHECK(out.Allocate());
+  CHECK(inb.size() <= N.size());
+  rsa::encrypt(N.ptr(), N.size(), E.ptr(), E.size(), inb.ptr(), inb.size(), out.ptr());
+  return out;
 }
 
 Buffer RSA_decrypt(const Buffer &N, const Buffer &D, const Buffer &inb) {
-    Buffer out(N.size());
-    CHECK(out.Allocate());
-    CHECK(inb.size() <= N.size());
-    rsa::decrypt(N.ptr(), N.size(), D.ptr(), D.size(), inb.ptr(), inb.size(), out.ptr());
-    return out;
+  Buffer out(N.size());
+  CHECK(out.Allocate());
+  CHECK(inb.size() <= N.size());
+  rsa::decrypt(N.ptr(), N.size(), D.ptr(), D.size(), inb.ptr(), inb.size(), out.ptr());
+  return out;
 }
 
 Buffer AES_encrypt(const Buffer &key, const Buffer &inb) {
