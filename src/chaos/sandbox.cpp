@@ -230,9 +230,8 @@ void RunMain() {
   constexpr int kEventFdFromHost = 5;
   constexpr int kEventFdToHost = 6;
   Event from(kEventFdFromHost), to(kEventFdToHost);
-  // TODO: open real flags
-  flag_firmware = open("/etc/passwd", O_RDONLY);
-  flag_sandbox = open("/etc/passwd", O_RDONLY);
+  flag_firmware = open("flag_firmware", O_RDONLY);
+  flag_sandbox = open("flag_sandbox", O_RDONLY);
   CHECK(flag_firmware >= 0);
   CHECK(flag_sandbox >= 0);
   install_seccomp();

@@ -6,11 +6,13 @@ modules.order
 *.ko
 *.mod
 *.mod.*
+/rootfs/flag
 /rootfs/init
-/rootfs/tests
 /rootfs/lib/firmware/chaos
+/rootfs/tests
 /release/*.gz
 /release/bzImage
+/release/flag_*
 /release/pc-bios
 /release/qemu-*
 /release/sandbox

@@ -19,6 +19,9 @@ clear_fs: .PHONY
 
 release: qemu clear_fs .PHONY
 	mkdir -p release/pc-bios
+	echo 'FLAG OF FIRMWARE' > release/flag_firmware
+	echo 'FLAG OF SANDBOX' > release/flag_sandbox
+	echo 'FLAG OF KERNEL' > rootfs/flag && chmod 400 rootfs/flag
 	$(MAKE) INIT="src/release/init" kernel
 	cp $(QEMU_BUILD_DIR)/qemu-system-x86_64 linux/arch/x86_64/boot/bzImage src/chaos/sandbox rootfs.cpio.gz release/
 	$(foreach f,$(QEMU_ROM_FILES),cp $(QEMU_BUILD_DIR)/pc-bios/$(f) release/pc-bios/;)
