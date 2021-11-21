@@ -122,6 +122,7 @@ void chaos_mailbox_handle_irq(struct chaos_mailbox *mbox)
 			mbox->responses[idx].retval = rsp.retval;
 		head = queue_inc(head);
 	}
+	CHAOS_WRITE(cdev, rsp_head, head);
 	spin_unlock_irqrestore(&mbox->rspq_lock, flags);
 	wake_up(&mbox->waitq);
 }
