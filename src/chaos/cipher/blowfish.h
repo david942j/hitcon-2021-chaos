@@ -7,6 +7,9 @@
 #ifndef _BLOWFISH_H
 #define _BLOWFISH_H
 
+#include <cstddef>
+#include <cstdint>
+
 namespace blowfish {
 
 void encrypt(uint32_t *key, size_t klen, uint32_t *inb, uint32_t *outb);
