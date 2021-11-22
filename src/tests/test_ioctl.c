@@ -125,6 +125,8 @@ static void test_md5(void) {
   assert(req.out_size == 0x10);
   static const u_int8_t md5[] = { 223, 61, 195, 12, 93, 221, 69, 55, 239, 193, 1, 123, 88, 214, 210, 237 };
   assert(memcmp(buf, md5, 0x10) == 0);
+  close(fd);
+  munmap(buf, 0x100);
 }
 
 static void test_aes(void) {
@@ -149,8 +151,15 @@ static void test_aes(void) {
   req.out_size = 0x100;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == 0x10);
-  static const u_int8_t aes[] = { 239, 188, 210, 239, 56, 119, 92, 235, 167, 240, 183, 215, 118, 73, 171, 224 };
-  assert(memcmp(buf, aes, 0x10) == 0);
+  static const u_int8_t aes_enc[] = { 239, 188, 210, 239, 56, 119, 92, 235, 167, 240, 183, 215, 118, 73, 171, 224 };
+  assert(memcmp(buf, aes_enc, 0x10) == 0);
+  req.algo = CHAOS_ALGO_AES_DEC;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == 0x10);
+  static const u_int8_t aes_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
+  assert(memcmp(buf, aes_dec, 0x10) == 0);
+  close(fd);
+  munmap(buf, 0x100);
 }
 
 int main() {
