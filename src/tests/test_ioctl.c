@@ -127,9 +127,36 @@ static void test_md5(void) {
   assert(memcmp(buf, md5, 0x10) == 0);
 }
 
+static void test_aes(void) {
+  int fd = OPEN();
+  struct chaos_request req = {
+    .algo = CHAOS_ALGO_AES_ENC,
+    .input = 0x0,
+    .in_size = 16,
+    .key = 0x100,
+    .key_size = 16,
+    .output = 0x0,
+    .out_size = 0x100,
+  };
+  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 0x200);
+  u_int8_t *buf = mmap(0, 0x100, PROT_WRITE, MAP_SHARED, fd, 0);
+  assert(buf != MAP_FAILED);
+  u_int8_t *key = buf + 0x100;
+  for (int i = 0; i < req.in_size; i++)
+    buf[i] = i * 2;
+  for (int i = 0; i < req.key_size; i++)
+    key[i] = i * 3;
+  req.out_size = 0x100;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == 0x10);
+  static const u_int8_t aes[] = { 239, 188, 210, 239, 56, 119, 92, 235, 167, 240, 183, 215, 118, 73, 171, 224 };
+  assert(memcmp(buf, aes, 0x10) == 0);
+}
+
 int main() {
   test_alloate_buffer();
   test_request();
   test_md5();
+  test_aes();
   return 0;
 }
