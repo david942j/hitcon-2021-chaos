@@ -202,7 +202,7 @@ static void test_bf(void) {
     .input = 0x0,
     .in_size = 8,
     .key = 0x100,
-    .key_size = 8,
+    .key_size = 12,
     .output = 0x0,
     .out_size = 0x100,
   };
@@ -217,9 +217,7 @@ static void test_bf(void) {
   req.out_size = 0x100;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == req.in_size);
-  for(int i=0;i<8;i++) fprintf(stderr, "%d ",buf[i]);
-  fprintf(stderr, "\n");
-  static const u_int8_t bf_enc[] = { 70, 108, 26, 47, 240, 33, 177, 237 };
+  static const u_int8_t bf_enc[] = { 199, 137, 205, 44, 93, 170, 122, 90 };
   assert(memcmp(buf, bf_enc, 0x8) == 0);
   req.algo = CHAOS_ALGO_BF_DEC;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);

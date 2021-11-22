@@ -206,6 +206,12 @@ const uint32_t initial_sbox[4][256] = {
 uint32_t P[18];
 uint32_t S[4][256];
 
+void convert_endian(uint8_t *arr, size_t size) {
+  for (size_t i = 0; i < size; i++) {
+    *(((uint32_t *)arr) + i) = __builtin_bswap32(*(((uint32_t *)arr) + i));
+  }
+}
+
 void reset() {
   memcpy(P, initial_pary, sizeof(initial_pary));
   memcpy(S, initial_sbox, sizeof(initial_sbox));
@@ -262,16 +268,22 @@ void setkey(uint32_t *key, size_t klen) {
 
 namespace blowfish {
 
-void encrypt(uint32_t *key, size_t klen, uint32_t *inb, uint32_t *outb) {
-  memcpy(outb, inb, 2 * sizeof(*inb));
-  setkey(key, klen);
-  enc(outb, outb + 1);
+void encrypt(uint8_t *key, size_t klen, uint8_t *inb, uint8_t *outb) {
+  memcpy(outb, inb, kBlockSize);
+  convert_endian(key, klen);
+  convert_endian(outb, kBlockSize);
+  setkey((uint32_t *)key, klen / sizeof(uint32_t));
+  enc((uint32_t *)outb, ((uint32_t *)outb) + 1);
+  convert_endian(outb, kBlockSize);
 }
 
-void decrypt(uint32_t *key, size_t klen, uint32_t *inb, uint32_t *outb) {
-  memcpy(outb, inb, 2 * sizeof(*inb));
-  setkey(key, klen);
-  dec(outb, outb + 1);
+void decrypt(uint8_t *key, size_t klen, uint8_t *inb, uint8_t *outb) {
+  memcpy(outb, inb, kBlockSize);
+  convert_endian(key, klen);
+  convert_endian(outb, kBlockSize);
+  setkey((uint32_t *)key, klen / sizeof(uint32_t));
+  dec((uint32_t *)outb, ((uint32_t *)outb) + 1);
+  convert_endian(outb, kBlockSize);
 }
 
 }

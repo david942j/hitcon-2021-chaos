@@ -93,7 +93,7 @@ Buffer BLOWFISH_encrypt(const Buffer &key, const Buffer &inb) {
   CHECK(inb.size() <= blowfish::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
-  blowfish::encrypt((uint32_t*)key.ptr(), key.size() / sizeof(uint32_t), (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
+  blowfish::encrypt(key.ptr(), key.size(), inb.ptr(), outb.ptr());
   return outb;
 }
 
@@ -104,7 +104,7 @@ Buffer BLOWFISH_decrypt(const Buffer &key, const Buffer &inb) {
   CHECK(inb.size() <= blowfish::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
-  blowfish::decrypt((uint32_t*)key.ptr(), key.size() / sizeof(uint32_t), (uint32_t*)inb.ptr(), (uint32_t*)outb.ptr());
+  blowfish::decrypt(key.ptr(), key.size(), inb.ptr(), outb.ptr());
   return outb;
 }
 
