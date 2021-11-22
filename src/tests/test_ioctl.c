@@ -134,7 +134,7 @@ static void test_aes(void) {
   struct chaos_request req = {
     .algo = CHAOS_ALGO_AES_ENC,
     .input = 0x0,
-    .in_size = 16,
+    .in_size = 32,
     .key = 0x100,
     .key_size = 16,
     .output = 0x0,
@@ -150,12 +150,12 @@ static void test_aes(void) {
     key[i] = i * 3;
   req.out_size = 0x100;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
-  assert(req.out_size == 0x10);
-  static const u_int8_t aes_enc[] = { 239, 188, 210, 239, 56, 119, 92, 235, 167, 240, 183, 215, 118, 73, 171, 224 };
-  assert(memcmp(buf, aes_enc, 0x10) == 0);
+  assert(req.out_size == 0x20);
+  static const u_int8_t aes_enc[] = { 239, 188, 210, 239, 56, 119, 92, 235, 167, 240, 183, 215, 118, 73, 171, 224, 2, 24, 97, 202, 206, 41, 229, 16, 124, 160, 169, 35, 161, 180, 226, 185 };
+  assert(memcmp(buf, aes_enc, 0x20) == 0);
   req.algo = CHAOS_ALGO_AES_DEC;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
-  assert(req.out_size == 0x10);
+  assert(req.out_size == 0x20);
   static const u_int8_t aes_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
   assert(memcmp(buf, aes_dec, 0x10) == 0);
   close(fd);
