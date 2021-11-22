@@ -22,6 +22,7 @@ enum chaos_request_algo {
 	CHAOS_ALGO_ECHO,
 	CHAOS_ALGO_MD5,
 	CHAOS_ALGO_AES_ENC,
+	CHAOS_ALGO_AES_DEC,
 };
 
 struct chaos_request {

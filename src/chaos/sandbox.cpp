@@ -118,14 +118,17 @@ enum chaos_request_algo {
   CHAOS_ALGO_ECHO,
   CHAOS_ALGO_MD5,
   CHAOS_ALGO_AES_ENC,
+  CHAOS_ALGO_AES_DEC,
 };
 
 long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
+  uint32_t in = args[1] >> 32;
+  uint32_t in_size = args[1];
+  uint32_t key = args[2] >> 32;
+  uint32_t key_size = args[2];
+  uint32_t out = args[3] >> 32;
   switch (args[0]) {
   case CHAOS_ALGO_MD5: {
-    uint32_t in = args[1];
-    uint32_t in_size = args[2];
-    uint32_t out = args[3];
     Buffer inb(in_size);
     if (!inb.FromUser(inferior, in))
       return -EFAULT;
@@ -135,11 +138,6 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
     return outb.size();
   }
   case CHAOS_ALGO_AES_ENC: {
-    uint32_t in = args[1] >> 32;
-    uint32_t in_size = args[1];
-    uint32_t key = args[2] >> 32;
-    uint32_t key_size = args[2];
-    uint32_t out = args[3] >> 32;
     Buffer inb(in_size);
     if (!inb.FromUser(inferior, in))
       return -EFAULT;
@@ -147,6 +145,18 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
     if (!keyb.FromUser(inferior, key))
       return -EFAULT;
     Buffer outb(crypto::AES_encrypt(keyb, inb));
+    if (!outb.ToUser(inferior, out))
+      return -EINVAL;
+    return outb.size();
+  }
+  case CHAOS_ALGO_AES_DEC: {
+    Buffer inb(in_size);
+    if (!inb.FromUser(inferior, in))
+      return -EFAULT;
+    Buffer keyb(key_size);
+    if (!keyb.FromUser(inferior, key))
+      return -EFAULT;
+    Buffer outb(crypto::AES_decrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
       return -EINVAL;
     return outb.size();
