@@ -121,6 +121,8 @@ enum chaos_request_algo {
   CHAOS_ALGO_AES_DEC,
   CHAOS_ALGO_RC4_ENC,
   CHAOS_ALGO_RC4_DEC,
+  CHAOS_ALGO_BF_ENC,
+  CHAOS_ALGO_BF_DEC,
 };
 
 long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
@@ -183,6 +185,33 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
     if (!keyb.FromUser(inferior, key))
       return -EFAULT;
     Buffer outb(crypto::RC4_decrypt(keyb, inb));
+    if (!outb.ToUser(inferior, out))
+      return -EINVAL;
+    return outb.size();
+  }
+  case CHAOS_ALGO_BF_ENC: {
+    Buffer inb(in_size);
+    if (!inb.FromUser(inferior, in))
+      return -EFAULT;
+    Buffer keyb(key_size);
+    if (!keyb.FromUser(inferior, key))
+      return -EFAULT;
+    inb.Dump("QQ");
+    keyb.Dump("QQ");
+    Buffer outb(crypto::BLOWFISH_encrypt(keyb, inb));
+    outb.Dump("QQ");
+    if (!outb.ToUser(inferior, out))
+      return -EINVAL;
+    return outb.size();
+  }
+  case CHAOS_ALGO_BF_DEC: {
+    Buffer inb(in_size);
+    if (!inb.FromUser(inferior, in))
+      return -EFAULT;
+    Buffer keyb(key_size);
+    if (!keyb.FromUser(inferior, key))
+      return -EFAULT;
+    Buffer outb(crypto::BLOWFISH_decrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
       return -EINVAL;
     return outb.size();

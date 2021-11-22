@@ -25,6 +25,8 @@ enum chaos_request_algo {
 	CHAOS_ALGO_AES_DEC,
 	CHAOS_ALGO_RC4_ENC,
 	CHAOS_ALGO_RC4_DEC,
+	CHAOS_ALGO_BF_ENC,
+	CHAOS_ALGO_BF_DEC,
 };
 
 struct chaos_request {

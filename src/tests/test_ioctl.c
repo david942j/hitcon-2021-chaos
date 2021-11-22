@@ -195,11 +195,47 @@ static void test_rc4(void) {
   munmap(buf, 0x200);
 }
 
+static void test_bf(void) {
+  int fd = OPEN();
+  struct chaos_request req = {
+    .algo = CHAOS_ALGO_BF_ENC,
+    .input = 0x0,
+    .in_size = 8,
+    .key = 0x100,
+    .key_size = 8,
+    .output = 0x0,
+    .out_size = 0x100,
+  };
+  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 0x200);
+  u_int8_t *buf = mmap(0, 0x200, PROT_WRITE, MAP_SHARED, fd, 0);
+  assert(buf != MAP_FAILED);
+  u_int8_t *key = buf + 0x100;
+  for (int i = 0; i < req.in_size; i++)
+    buf[i] = i * 2;
+  for (int i = 0; i < req.key_size; i++)
+    key[i] = i * 3;
+  req.out_size = 0x100;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == req.in_size);
+  for(int i=0;i<8;i++) fprintf(stderr, "%d ",buf[i]);
+  fprintf(stderr, "\n");
+  static const u_int8_t bf_enc[] = { 70, 108, 26, 47, 240, 33, 177, 237 };
+  assert(memcmp(buf, bf_enc, 0x8) == 0);
+  req.algo = CHAOS_ALGO_BF_DEC;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == req.in_size);
+  static const u_int8_t bf_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14 };
+  assert(memcmp(buf, bf_dec, 0x8) == 0);
+  close(fd);
+  munmap(buf, 0x200);
+}
+
 int main() {
   test_alloate_buffer();
   test_request();
   test_md5();
   test_aes();
   test_rc4();
+  test_bf();
   return 0;
 }

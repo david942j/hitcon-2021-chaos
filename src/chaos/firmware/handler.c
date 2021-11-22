@@ -29,6 +29,8 @@ enum chaos_request_algo {
     CHAOS_ALGO_AES_DEC,
     CHAOS_ALGO_RC4_ENC,
     CHAOS_ALGO_RC4_DEC,
+    CHAOS_ALGO_BF_ENC,
+    CHAOS_ALGO_BF_DEC,
 };
 
 struct chaos_request {
@@ -122,6 +124,10 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
         return syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_ENC, PACK(in), PACK(key), PACK(out));
     case CHAOS_ALGO_RC4_DEC:
         return syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_DEC, PACK(in), PACK(key), PACK(out));
+    case CHAOS_ALGO_BF_ENC:
+        return syscall(SYS_chaos_crypto, CHAOS_ALGO_BF_ENC, PACK(in), PACK(key), PACK(out));
+    case CHAOS_ALGO_BF_DEC:
+        return syscall(SYS_chaos_crypto, CHAOS_ALGO_BF_DEC, PACK(in), PACK(key), PACK(out));
     default:
         CHECK(false);
         return 0;
