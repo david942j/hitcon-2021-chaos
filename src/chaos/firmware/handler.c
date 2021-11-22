@@ -25,12 +25,15 @@ enum chaos_request_algo {
     /* copy input to output, for testing purpose */
     CHAOS_ALGO_ECHO,
     CHAOS_ALGO_MD5,
+    CHAOS_ALGO_AES_ENC,
 };
 
 struct chaos_request {
     enum chaos_request_algo algo;
     uint32_t input;
     uint32_t in_size;
+    uint32_t key;
+    uint32_t key_size;
     uint32_t output;
     uint32_t out_size;
 };
@@ -56,6 +59,8 @@ struct dram_buffer {
     void *ptr;
     uint32_t size;
 };
+
+#define PACK(db) ((((uint64_t)db.ptr) << 32) | (uint64_t)db.size)
 
 #define CSR_BASE 0x10000
 #define DRAM_BASE 0x10000000
@@ -84,7 +89,7 @@ static uint64_t real_index(uint64_t idx, uint64_t size)
 static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
 {
     enum chaos_request_algo algo;
-    struct dram_buffer in, out;
+    struct dram_buffer in, key, out;
 
     CHECK(cmd->dma_size == sizeof(struct chaos_request));
     {
@@ -92,6 +97,7 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
 
         algo = req->algo;
         check_dram_buffer(&in, req->input, req->in_size);
+        check_dram_buffer(&key, req->key, req->key_size);
         check_dram_buffer(&out, req->output, req->out_size);
     }
 
@@ -105,6 +111,8 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
         if (out.size < 0x10)
             return -EOVERFLOW;
         return syscall(SYS_chaos_crypto, CHAOS_ALGO_MD5, in.ptr, in.size, out.ptr);
+    case CHAOS_ALGO_AES_ENC:
+        return syscall(SYS_chaos_crypto, CHAOS_ALGO_AES_ENC, PACK(in), PACK(key), PACK(out));
     default:
         CHECK(false);
         return 0;

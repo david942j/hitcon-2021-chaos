@@ -21,12 +21,15 @@ enum chaos_request_algo {
 	/* copy input to output, for testing purpose */
 	CHAOS_ALGO_ECHO,
 	CHAOS_ALGO_MD5,
+	CHAOS_ALGO_AES_ENC,
 };
 
 struct chaos_request {
 	enum chaos_request_algo algo;
 	u_int32_t input;
 	u_int32_t in_size;
+	u_int32_t key;
+	u_int32_t key_size;
 	u_int32_t output;
 	/*
 	 * Size of @output.

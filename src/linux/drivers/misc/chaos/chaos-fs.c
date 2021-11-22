@@ -91,6 +91,13 @@ static int chaos_ioctl_request(struct chaos_client *client, void __user *arg)
 	} else {
 		req.input = 0;
 	}
+	if (req.key_size != 0) {
+		if (req.key >= size)
+			return -EINVAL;
+		req.key += offset;
+	} else {
+		req.key = 0;
+	}
 	if (req.out_size != 0) {
 		if (req.output >= size)
 			return -EINVAL;
