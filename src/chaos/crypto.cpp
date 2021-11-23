@@ -73,6 +73,7 @@ Buffer AES_decrypt(const Buffer &key, const Buffer &inb) {
 }
 
 Buffer RC4_encrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() > 0);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
   rc4::encrypt(key.ptr(), key.size(), inb.ptr(), inb.size(), outb.ptr());
@@ -80,6 +81,7 @@ Buffer RC4_encrypt(const Buffer &key, const Buffer &inb) {
 }
 
 Buffer RC4_decrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() > 0);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
   rc4::decrypt(key.ptr(), key.size(), inb.ptr(), inb.size(), outb.ptr());
