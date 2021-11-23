@@ -5,6 +5,7 @@ kernel: .PHONY
 _build_fw: .PHONY
 	$(RM) -r firmware/
 	cp -r ../src/chaos/firmware .
+	$(RM) firmware/*.{o,elf,bin,signed}
 	cp $(SRC) firmware/
 	$(MAKE) -C firmware/
 
