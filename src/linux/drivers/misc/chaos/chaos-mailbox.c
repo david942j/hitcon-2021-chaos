@@ -32,7 +32,6 @@ static inline u64 queue_inc(u64 index)
 }
 
 #define WAITING_RESPONSE -100
-#define WRONG_SEQ -101
 static int chaos_push_cmd_and_wait(struct chaos_mailbox *mbox, const struct chaos_mailbox_cmd *cmd,
 				   u32 *retval)
 {
@@ -62,8 +61,6 @@ static int chaos_push_cmd_and_wait(struct chaos_mailbox *mbox, const struct chao
 				 msecs_to_jiffies(MAILBOX_TIMEOUT_MS));
 	if (!ret)
 		return -ETIMEDOUT;
-	if (val == WRONG_SEQ)
-		return -ENOMSG;
 	*retval = val;
 	return 0;
 }
@@ -116,10 +113,7 @@ void chaos_mailbox_handle_irq(struct chaos_mailbox *mbox)
 		struct chaos_mailbox_rsp rsp = queue[REAL_INDEX(head)];
 		const size_t idx = rsp.seq % CHAOS_QUEUE_SIZE;
 
-		if (mbox->responses[idx].seq != rsp.seq)
-			mbox->responses[idx].retval = WRONG_SEQ;
-		else
-			mbox->responses[idx].retval = rsp.retval;
+		mbox->responses[idx] = rsp;
 		head = queue_inc(head);
 	}
 	CHAOS_WRITE(cdev, rsp_head, head);
