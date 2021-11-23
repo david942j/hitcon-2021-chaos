@@ -106,9 +106,8 @@ void chaos_mailbox_handle_irq(struct chaos_mailbox *mbox)
 	struct chaos_device *cdev = mbox->cdev;
 	struct chaos_mailbox_rsp *queue = mbox->rspq.vaddr;
 	u64 head = CHAOS_READ(cdev, rsp_head);
-	unsigned long flags;
 
-	spin_lock_irqsave(&mbox->rspq_lock, flags);
+	spin_lock(&mbox->rspq_lock);
 	while (head != CHAOS_READ(cdev, rsp_tail)) {
 		struct chaos_mailbox_rsp rsp = queue[REAL_INDEX(head)];
 		const size_t idx = rsp.seq % CHAOS_QUEUE_SIZE;
@@ -117,7 +116,7 @@ void chaos_mailbox_handle_irq(struct chaos_mailbox *mbox)
 		head = queue_inc(head);
 	}
 	CHAOS_WRITE(cdev, rsp_head, head);
-	spin_unlock_irqrestore(&mbox->rspq_lock, flags);
+	spin_unlock(&mbox->rspq_lock);
 	wake_up(&mbox->waitq);
 }
 
