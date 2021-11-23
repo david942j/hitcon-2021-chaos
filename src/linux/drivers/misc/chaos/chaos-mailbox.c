@@ -53,7 +53,6 @@ static int chaos_push_cmd_and_wait(struct chaos_mailbox *mbox, const struct chao
 	CHAOS_WRITE(cdev, cmd_tail, queue_inc(tail));
 	mutex_unlock(&mbox->cmdq_lock);
 
-	mbox->responses[idx].seq = cmd->seq;
 	mbox->responses[idx].retval = WAITING_RESPONSE;
 	CHAOS_WRITE(cdev, cmd_sent, 1);
 

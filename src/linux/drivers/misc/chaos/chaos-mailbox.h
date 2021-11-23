@@ -24,16 +24,16 @@ enum chaos_command_code {
 };
 
 struct chaos_mailbox_cmd {
-	uint32_t seq;
+	uint16_t seq;
 	enum chaos_command_code code;
 	uint32_t dma_addr;
 	uint32_t dma_size;
-};
+} __packed;
 
 struct chaos_mailbox_rsp {
-	uint32_t seq;
+	uint16_t seq;
 	uint32_t retval;
-};
+} __packed;
 
 struct chaos_mailbox {
 	struct chaos_resource cmdq, rspq;
