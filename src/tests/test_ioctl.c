@@ -93,13 +93,20 @@ static void test_request(void) {
 
   u_int8_t *in = mmap(0, 0x1000, PROT_WRITE, MAP_SHARED, fd, 0);
   void *out = mmap(0, 0x1000, PROT_READ, MAP_SHARED, fd, 0x1000);
-  req.input = 0; req.in_size = 0x100;
-  for (int i = 0; i < 0x100; i++)
+  const u_int32_t size = 0x23;
+  req.input = 0; req.in_size = size;
+  for (int i = 0; i < size; i++)
     in[i] = i * 2;
   req.output = 0x1000; req.out_size = 0x1000;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
-  assert(req.out_size == 0x100);
-  assert(memcmp(in, out, 0x100) == 0);
+  assert(req.out_size == size);
+  assert(memcmp(in, out, size) == 0);
+  // Test > 0x200 * 2 times, to have more confidence the circular queue is properly proceeded.
+  for (int i = 0; i < 0x401; i++) {
+    req.out_size = 0x1000;
+    ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+    assert(req.out_size == size);
+  }
   close(fd);
   munmap(in, 0x1000);
   munmap(out, 0x1000);
