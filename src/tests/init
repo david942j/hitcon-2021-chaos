@@ -11,7 +11,7 @@ mount -t tmpfs none /tmp
 insmod chaos.ko
 chmod 0666 /dev/chaos
 
-timeout -s KILL 60 setsid cttyhack su -s /tests/go.sh user
+timeout -s KILL 60 setsid cttyhack su -s /tests/go user
 
 rmmod chaos
 poweroff -f

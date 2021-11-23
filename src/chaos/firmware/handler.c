@@ -11,11 +11,6 @@ static void check_dram_buffer(struct dram_buffer *buf, uint32_t offset, uint32_t
     buf->size = size;
 }
 
-static uint64_t real_index(uint64_t idx, uint64_t size)
-{
-    return idx & (size - 1);
-}
-
 static void xor(uint8_t *ptr, uint8_t *from, uint32_t size)
 {
     uint32_t i;
@@ -112,11 +107,6 @@ static int handle_cmd(struct chaos_mailbox_cmd *cmd)
 {
     CHECK(cmd->code == CHAOS_CMD_CODE_REQUEST);
     return handle_cmd_request(cmd);
-}
-
-static inline uint64_t queue_inc(uint64_t val, uint64_t size)
-{
-    return (++val) & ((size << 1) - 1);
 }
 
 static void push_rsp(struct chaos_mailbox_rsp *rsp)

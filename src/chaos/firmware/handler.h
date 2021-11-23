@@ -83,4 +83,14 @@ static inline void *DRAM_AT(uint32_t addr)
     return (void *)(uint64_t)(DRAM_BASE + addr);
 }
 
+static inline uint64_t real_index(uint64_t idx, uint64_t size)
+{
+    return idx & (size - 1);
+}
+
+static inline uint64_t queue_inc(uint64_t val, uint64_t size)
+{
+    return (++val) & ((size << 1) - 1);
+}
+
 #endif /* HANDLER_H_ */

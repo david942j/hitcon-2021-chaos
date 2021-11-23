@@ -46,7 +46,8 @@ test: .PHONY
 sol_kernel: .PHONY
 	$(MAKE) -C solution kernel
 	mkdir -p rootfs/tests
-	cp solution/kernel/go.sh rootfs/tests/
+	cp solution/kernel/go rootfs/tests/
+	# TODO: use release/init
 	$(MAKE) FW=solution/firmware/firmware.bin.signed INIT=src/tests/init build run
 
 # Do NOT depend on me - always use $(MAKE) INIT=... _fs
