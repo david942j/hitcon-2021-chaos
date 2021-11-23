@@ -207,7 +207,7 @@ uint32_t P[18];
 uint32_t S[4][256];
 
 void convert_endian(uint8_t *arr, size_t size) {
-  for (size_t i = 0; i < size; i++) {
+  for (size_t i = 0; i < size / sizeof(uint32_t); i++) {
     *(((uint32_t *)arr) + i) = __builtin_bswap32(*(((uint32_t *)arr) + i));
   }
 }
