@@ -147,37 +147,37 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
   case CHAOS_ALGO_AES_ENC: {
     Buffer outb(crypto::AES_encrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
-      return -EINVAL;
+      return -EFAULT;
     return outb.size();
   }
   case CHAOS_ALGO_AES_DEC: {
     Buffer outb(crypto::AES_decrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
-      return -EINVAL;
+      return -EFAULT;
     return outb.size();
   }
   case CHAOS_ALGO_RC4_ENC: {
     Buffer outb(crypto::RC4_encrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
-      return -EINVAL;
+      return -EFAULT;
     return outb.size();
   }
   case CHAOS_ALGO_RC4_DEC: {
     Buffer outb(crypto::RC4_decrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
-      return -EINVAL;
+      return -EFAULT;
     return outb.size();
   }
   case CHAOS_ALGO_BF_ENC: {
     Buffer outb(crypto::BLOWFISH_encrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
-      return -EINVAL;
+      return -EFAULT;
     return outb.size();
   }
   case CHAOS_ALGO_BF_DEC: {
     Buffer outb(crypto::BLOWFISH_decrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
-      return -EINVAL;
+      return -EFAULT;
     return outb.size();
   }
   default:

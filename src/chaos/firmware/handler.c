@@ -65,8 +65,11 @@ struct dram_buffer {
     uint32_t size;
 };
 
-#define PACKDB(db) ((((uint64_t)db.ptr) << 32) | (uint64_t)db.size)
 #define PACK(ptr, size) ((((uint64_t)ptr) << 32) | (uint64_t)size)
+#define PACKDB(db) PACK(db.ptr, db.size)
+
+#define AES_BLOCK_SIZE 0x10
+#define BLOWFISH_BLOCK_SIZE 0x8
 
 #define CSR_BASE 0x10000
 #define DRAM_BASE 0x10000000
@@ -94,30 +97,31 @@ static uint64_t real_index(uint64_t idx, uint64_t size)
 
 static void xor(uint8_t *ptr, uint8_t *from, uint32_t size)
 {
-	uint32_t i;
-	for (i = 0; i < size; i++) {
-		ptr[i] = ptr[i] ^ from[i];
-	}
+    uint32_t i;
+
+    for (i = 0; i < size; i++)
+	ptr[i] ^= from[i];
 }
 
-static int cbc_mode(enum chaos_request_algo algo, struct dram_buffer in, struct dram_buffer key, struct dram_buffer out, uint32_t block_size)
+static int cbc_mode(enum chaos_request_algo algo, struct dram_buffer in, struct dram_buffer key,
+                    struct dram_buffer out, uint32_t block_size)
 {
-	uint32_t in_size = in.size;
-	uint8_t *in_ptr, *out_ptr, *prev_ptr;
-	uint32_t i;
-	int ret, tot = 0;
-	for (i = 0; i < in_size; i += block_size) {
-		in_ptr = ((uint8_t *)in.ptr) + i;
-		out_ptr = ((uint8_t *)out.ptr) + i;
-		if (i != 0)
-			xor(in_ptr, prev_ptr, block_size);
-		prev_ptr = out_ptr;
-		ret = syscall(SYS_chaos_crypto, algo, PACK(in_ptr, block_size), PACKDB(key), PACK(out_ptr, block_size));
-		if (ret < 0)
-			return ret;
-		tot += ret;
-	}
-	return tot;
+    uint32_t in_size = in.size;
+    uint8_t *in_ptr, *out_ptr, *prev_ptr;
+    uint32_t i;
+    int ret, tot = 0;
+    for (i = 0; i < in_size; i += block_size) {
+	in_ptr = ((uint8_t *)in.ptr) + i;
+	out_ptr = ((uint8_t *)out.ptr) + i;
+	if (i != 0)
+	    xor(in_ptr, prev_ptr, block_size);
+	prev_ptr = out_ptr;
+	ret = syscall(SYS_chaos_crypto, algo, PACK(in_ptr, block_size), PACKDB(key), PACK(out_ptr, block_size));
+	if (ret < 0)
+	    return ret;
+	tot += ret;
+    }
+    return tot;
 }
 
 static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
@@ -146,17 +150,37 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
             return -EOVERFLOW;
         return syscall(SYS_chaos_crypto, CHAOS_ALGO_MD5, PACKDB(in), PACKDB(key), PACKDB(out));
     case CHAOS_ALGO_RC4_ENC:
+        if (out.size < in.size)
+            return -EOVERFLOW;
         return syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_ENC, PACKDB(in), PACKDB(key), PACKDB(out));
     case CHAOS_ALGO_RC4_DEC:
+        if (out.size < in.size)
+            return -EOVERFLOW;
         return syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_DEC, PACKDB(in), PACKDB(key), PACKDB(out));
     case CHAOS_ALGO_AES_ENC:
-        return cbc_mode(CHAOS_ALGO_AES_ENC, in, key, out, 0x10);
+        if (out.size < in.size)
+            return -EOVERFLOW;
+	if (in.size % AES_BLOCK_SIZE != 0)
+            return -EINVAL;
+        return cbc_mode(CHAOS_ALGO_AES_ENC, in, key, out, AES_BLOCK_SIZE);
     case CHAOS_ALGO_AES_DEC:
-        return cbc_mode(CHAOS_ALGO_AES_DEC, in, key, out, 0x10);
+        if (out.size < in.size)
+            return -EOVERFLOW;
+	if (in.size % AES_BLOCK_SIZE != 0)
+            return -EINVAL;
+        return cbc_mode(CHAOS_ALGO_AES_DEC, in, key, out, AES_BLOCK_SIZE);
     case CHAOS_ALGO_BF_ENC:
-        return cbc_mode(CHAOS_ALGO_BF_ENC, in, key, out, 0x8);
+        if (out.size < in.size)
+            return -EOVERFLOW;
+	if (in.size % BLOWFISH_BLOCK_SIZE != 0)
+            return -EINVAL;
+        return cbc_mode(CHAOS_ALGO_BF_ENC, in, key, out, BLOWFISH_BLOCK_SIZE);
     case CHAOS_ALGO_BF_DEC:
-        return cbc_mode(CHAOS_ALGO_BF_DEC, in, key, out, 0x8);
+        if (out.size < in.size)
+            return -EOVERFLOW;
+	if (in.size % BLOWFISH_BLOCK_SIZE != 0)
+            return -EINVAL;
+        return cbc_mode(CHAOS_ALGO_BF_DEC, in, key, out, BLOWFISH_BLOCK_SIZE);
     default:
         CHECK(false);
         return 0;

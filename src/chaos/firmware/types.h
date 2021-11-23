@@ -1,6 +1,7 @@
 #ifndef _TYPES_H
 #define _TYPES_H
 
+#define EINVAL 22
 #define EOVERFLOW 75
 #define false 0
 #define true 1
