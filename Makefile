@@ -1,3 +1,4 @@
+FW ?= src/chaos/firmware/firmware.bin.signed
 INIT ?= src/tests/init
 QEMU_BUILD_DIR = qemu/build
 QEMU_ROM_FILES = bios-256k.bin kvmvapic.bin linuxboot_dma.bin vgabios-stdvga.bin efi-e1000.rom
@@ -35,18 +36,24 @@ kernel: .PHONY
 	$(MAKE) -C linux -j `nproc`
 	$(MAKE) -C src driver
 	cp src/linux/drivers/misc/chaos/chaos.ko rootfs/
-	$(MAKE) INIT="$(INIT)" _fs
+	$(MAKE) FW="$(FW)" INIT="$(INIT)" _fs
 
 test: .PHONY
 	$(MAKE) -C src/tests
 	cp -r src/tests rootfs/
 	$(MAKE) INIT=src/tests/init build run
 
+sol_kernel: .PHONY
+	$(MAKE) -C solution kernel
+	mkdir -p rootfs/tests
+	cp solution/kernel/go.sh rootfs/tests/
+	$(MAKE) FW=solution/firmware/firmware.bin.signed INIT=src/tests/init build run
+
 # Do NOT depend on me - always use $(MAKE) INIT=... _fs
 _fs: .PHONY
 	$(MAKE) -C src/chaos firmware
 	mkdir -p rootfs/lib/firmware
-	cp src/chaos/firmware/firmware.bin.signed rootfs/lib/firmware/chaos
+	cp $(FW) rootfs/lib/firmware/chaos
 	cp $(INIT) rootfs/init && chmod +x rootfs/init
 	cd rootfs && find . | cpio -o -Hnewc | gzip -9 > ../rootfs.cpio.gz
 
