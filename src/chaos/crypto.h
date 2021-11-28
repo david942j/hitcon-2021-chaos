@@ -35,6 +35,10 @@ Buffer TWOFISH_encrypt(const Buffer &key, const Buffer &inb);
 
 Buffer TWOFISH_decrypt(const Buffer &key, const Buffer &inb);
 
+Buffer THREEFISH_encrypt(const Buffer &key, const Buffer &inb);
+
+Buffer THREEFISH_decrypt(const Buffer &key, const Buffer &inb);
+
 }
 
 #endif // _CRYPTO_H

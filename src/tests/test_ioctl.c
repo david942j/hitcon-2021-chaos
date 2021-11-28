@@ -202,39 +202,6 @@ static void test_rc4(void) {
   munmap(buf, 0x200);
 }
 
-static void test_tf(void) {
-  int fd = OPEN();
-  struct chaos_request req = {
-    .algo = CHAOS_ALGO_TF_ENC,
-    .input = 0x0,
-    .in_size = 16,
-    .key = 0x100,
-    .key_size = 16,
-    .output = 0x0,
-    .out_size = 0x100,
-  };
-  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 0x200);
-  u_int8_t *buf = mmap(0, 0x200, PROT_WRITE, MAP_SHARED, fd, 0);
-  assert(buf != MAP_FAILED);
-  u_int8_t *key = buf + 0x100;
-  for (int i = 0; i < req.in_size; i++)
-    buf[i] = i * 2;
-  for (int i = 0; i < req.key_size; i++)
-    key[i] = i * 3;
-  req.out_size = 0x100;
-  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
-  assert(req.out_size == 0x10);
-  static const u_int8_t tf_enc[] = { 202, 203, 149, 244, 190, 76, 3, 2, 246, 240, 96, 168, 23, 207, 43, 40 };
-  assert(memcmp(buf, tf_enc, 0x10) == 0);
-  req.algo = CHAOS_ALGO_TF_DEC;
-  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
-  assert(req.out_size == 0x10);
-  static const u_int8_t tf_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
-  assert(memcmp(buf, tf_dec, 0x10) == 0);
-  close(fd);
-  munmap(buf, 0x200);
-}
-
 static void test_bf(void) {
   int fd = OPEN();
   struct chaos_request req = {
@@ -268,6 +235,72 @@ static void test_bf(void) {
   munmap(buf, 0x200);
 }
 
+static void test_tf(void) {
+  int fd = OPEN();
+  struct chaos_request req = {
+    .algo = CHAOS_ALGO_TF_ENC,
+    .input = 0x0,
+    .in_size = 16,
+    .key = 0x100,
+    .key_size = 16,
+    .output = 0x0,
+    .out_size = 0x100,
+  };
+  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 0x200);
+  u_int8_t *buf = mmap(0, 0x200, PROT_WRITE, MAP_SHARED, fd, 0);
+  assert(buf != MAP_FAILED);
+  u_int8_t *key = buf + 0x100;
+  for (int i = 0; i < req.in_size; i++)
+    buf[i] = i * 2;
+  for (int i = 0; i < req.key_size; i++)
+    key[i] = i * 3;
+  req.out_size = 0x100;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == 0x10);
+  static const u_int8_t tf_enc[] = { 202, 203, 149, 244, 190, 76, 3, 2, 246, 240, 96, 168, 23, 207, 43, 40 };
+  assert(memcmp(buf, tf_enc, 0x10) == 0);
+  req.algo = CHAOS_ALGO_TF_DEC;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == 0x10);
+  static const u_int8_t tf_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
+  assert(memcmp(buf, tf_dec, 0x10) == 0);
+  close(fd);
+  munmap(buf, 0x200);
+}
+
+static void test_fff(void) {
+  int fd = OPEN();
+  struct chaos_request req = {
+    .algo = CHAOS_ALGO_FFF_ENC,
+    .input = 0x0,
+    .in_size = 32,
+    .key = 0x100,
+    .key_size = 32,
+    .output = 0x0,
+    .out_size = 0x100,
+  };
+  ASSERT_IOCTL_OK(fd, CHAOS_ALLOCATE_BUFFER, 0x200);
+  u_int8_t *buf = mmap(0, 0x200, PROT_WRITE, MAP_SHARED, fd, 0);
+  assert(buf != MAP_FAILED);
+  u_int8_t *key = buf + 0x100;
+  for (int i = 0; i < req.in_size; i++)
+    buf[i] = i * 2;
+  for (int i = 0; i < req.key_size; i++)
+    key[i] = i * 3;
+  req.out_size = 0x100;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == 0x20);
+  static const u_int8_t fff_enc[] = { 41, 218, 72, 156, 116, 144, 204, 110, 215, 233, 248, 7, 99, 238, 156, 43, 5, 207, 36, 19, 110, 165, 99, 85, 44, 227, 225, 243, 155, 116, 167, 61 };
+  assert(memcmp(buf, fff_enc, 0x20) == 0);
+  req.algo = CHAOS_ALGO_FFF_DEC;
+  ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
+  assert(req.out_size == 0x20);
+  static const u_int8_t fff_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62 };
+  assert(memcmp(buf, fff_dec, 0x20) == 0);
+  close(fd);
+  munmap(buf, 0x200);
+}
+
 int main() {
   test_alloate_buffer();
   test_request();
@@ -276,5 +309,6 @@ int main() {
   test_rc4();
   test_bf();
   test_tf();
+  test_fff();
   return 0;
 }

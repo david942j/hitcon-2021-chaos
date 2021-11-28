@@ -16,6 +16,7 @@
 #include "cipher/rc4.h"
 #include "cipher/rsa.h"
 #include "cipher/twofish.h"
+#include "cipher/threefish.h"
 
 namespace crypto {
 
@@ -128,6 +129,26 @@ Buffer TWOFISH_decrypt(const Buffer &key, const Buffer &inb) {
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
   twofish::decrypt(key.ptr(), key.size(), inb.ptr(), outb.ptr());
+  return outb;
+}
+
+Buffer THREEFISH_encrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() == threefish::kKeyLength);
+  CHECK(inb.size() % sizeof(uint32_t) == 0);
+  CHECK(inb.size() <= threefish::kBlockSize);
+  Buffer outb(inb.size());
+  CHECK(outb.Allocate());
+  threefish::encrypt(key.ptr(), key.size(), inb.ptr(), outb.ptr());
+  return outb;
+}
+
+Buffer THREEFISH_decrypt(const Buffer &key, const Buffer &inb) {
+  CHECK(key.size() == threefish::kKeyLength);
+  CHECK(inb.size() % sizeof(uint32_t) == 0);
+  CHECK(inb.size() <= threefish::kBlockSize);
+  Buffer outb(inb.size());
+  CHECK(outb.Allocate());
+  threefish::decrypt(key.ptr(), key.size(), inb.ptr(), outb.ptr());
   return outb;
 }
 

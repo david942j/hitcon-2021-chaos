@@ -35,6 +35,8 @@ enum chaos_request_algo {
     CHAOS_ALGO_BF_DEC,
     CHAOS_ALGO_TF_ENC,
     CHAOS_ALGO_TF_DEC,
+    CHAOS_ALGO_FFF_ENC,
+    CHAOS_ALGO_FFF_DEC,
 };
 
 struct chaos_request {
@@ -75,6 +77,7 @@ struct dram_buffer {
 #define AES_BLOCK_SIZE 0x10
 #define BLOWFISH_BLOCK_SIZE 0x8
 #define TWOFISH_BLOCK_SIZE 0x10
+#define THREEFISH_BLOCK_SIZE 0x20
 
 #define CSR_BASE 0x10000
 #define DRAM_BASE 0x10000000

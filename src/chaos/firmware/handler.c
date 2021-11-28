@@ -109,6 +109,18 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
         if (in.size % TWOFISH_BLOCK_SIZE != 0)
             return -EINVAL;
         return cbc_mode(CHAOS_ALGO_TF_DEC, in, key, out, TWOFISH_BLOCK_SIZE);
+    case CHAOS_ALGO_FFF_ENC:
+        if (out.size < in.size)
+            return -EOVERFLOW;
+	    if (in.size % THREEFISH_BLOCK_SIZE != 0)
+            return -EINVAL;
+        return cbc_mode(CHAOS_ALGO_FFF_ENC, in, key, out, THREEFISH_BLOCK_SIZE);
+    case CHAOS_ALGO_FFF_DEC:
+        if (out.size < in.size)
+            return -EOVERFLOW;
+	    if (in.size % THREEFISH_BLOCK_SIZE != 0)
+            return -EINVAL;
+        return cbc_mode(CHAOS_ALGO_FFF_DEC, in, key, out, THREEFISH_BLOCK_SIZE);
     default:
         CHECK(false);
         return 0;

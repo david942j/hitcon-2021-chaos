@@ -125,6 +125,8 @@ enum chaos_request_algo {
   CHAOS_ALGO_BF_DEC,
   CHAOS_ALGO_TF_ENC,
   CHAOS_ALGO_TF_DEC,
+  CHAOS_ALGO_FFF_ENC,
+  CHAOS_ALGO_FFF_DEC,
 };
 
 long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
@@ -190,6 +192,18 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
   }
   case CHAOS_ALGO_TF_DEC: {
     Buffer outb(crypto::TWOFISH_decrypt(keyb, inb));
+    if (!outb.ToUser(inferior, out))
+      return -EFAULT;
+    return outb.size();
+  }
+  case CHAOS_ALGO_FFF_ENC: {
+    Buffer outb(crypto::THREEFISH_encrypt(keyb, inb));
+    if (!outb.ToUser(inferior, out))
+      return -EFAULT;
+    return outb.size();
+  }
+  case CHAOS_ALGO_FFF_DEC: {
+    Buffer outb(crypto::THREEFISH_decrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
       return -EFAULT;
     return outb.size();
@@ -296,7 +310,6 @@ void RunMain() {
   CHECK(flag_firmware >= 0);
   CHECK(flag_sandbox >= 0);
   install_seccomp();
-
   from.WaitAndClear();
   VerifyFirmware();
   to.Trigger(0x1337);
