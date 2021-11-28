@@ -76,37 +76,37 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
     case CHAOS_ALGO_AES_ENC:
         if (out.size < in.size)
             return -EOVERFLOW;
-	    if (in.size % AES_BLOCK_SIZE != 0)
+        if (in.size % AES_BLOCK_SIZE != 0)
             return -EINVAL;
         return cbc_mode(CHAOS_ALGO_AES_ENC, in, key, out, AES_BLOCK_SIZE);
     case CHAOS_ALGO_AES_DEC:
         if (out.size < in.size)
             return -EOVERFLOW;
-	    if (in.size % AES_BLOCK_SIZE != 0)
+        if (in.size % AES_BLOCK_SIZE != 0)
             return -EINVAL;
         return cbc_mode(CHAOS_ALGO_AES_DEC, in, key, out, AES_BLOCK_SIZE);
     case CHAOS_ALGO_BF_ENC:
         if (out.size < in.size)
             return -EOVERFLOW;
-	    if (in.size % BLOWFISH_BLOCK_SIZE != 0)
+        if (in.size % BLOWFISH_BLOCK_SIZE != 0)
             return -EINVAL;
         return cbc_mode(CHAOS_ALGO_BF_ENC, in, key, out, BLOWFISH_BLOCK_SIZE);
     case CHAOS_ALGO_BF_DEC:
         if (out.size < in.size)
             return -EOVERFLOW;
-	    if (in.size % BLOWFISH_BLOCK_SIZE != 0)
+        if (in.size % BLOWFISH_BLOCK_SIZE != 0)
             return -EINVAL;
         return cbc_mode(CHAOS_ALGO_BF_DEC, in, key, out, BLOWFISH_BLOCK_SIZE);
     case CHAOS_ALGO_TF_ENC:
         if (out.size < in.size)
             return -EOVERFLOW;
-	    if (in.size % TWOFISH_BLOCK_SIZE != 0)
+        if (in.size % TWOFISH_BLOCK_SIZE != 0)
             return -EINVAL;
         return cbc_mode(CHAOS_ALGO_TF_ENC, in, key, out, TWOFISH_BLOCK_SIZE);
     case CHAOS_ALGO_TF_DEC:
         if (out.size < in.size)
             return -EOVERFLOW;
-	    if (in.size % TWOFISH_BLOCK_SIZE != 0)
+        if (in.size % TWOFISH_BLOCK_SIZE != 0)
             return -EINVAL;
         return cbc_mode(CHAOS_ALGO_TF_DEC, in, key, out, TWOFISH_BLOCK_SIZE);
     default:
