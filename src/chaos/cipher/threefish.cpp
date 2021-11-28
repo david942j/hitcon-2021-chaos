@@ -97,16 +97,16 @@ static void enc(uint64_t *data)
 
 static void dec(uint64_t *data)
 {   
-	uint64_t G0, G1, G2, G3;
-	
-	G0 = data[0] - m_rkey[3]; 
+    uint64_t G0, G1, G2, G3;
+
+    G0 = data[0] - m_rkey[3]; 
     G1 = data[1] - m_rkey[4]; 
     G2 = data[2] - m_rkey[0];
     G3 = data[3] - m_rkey[1] - 18; 
-	for (int i = 8; i >= 0; i--) {
-		IG256x8(2 * i);
-	}
-	data[0] = G0;
+    for (int i = 8; i >= 0; i--) {
+        IG256x8(2 * i);
+    }
+    data[0] = G0;
     data[1] = G1; 
     data[2] = G2;
     data[3] = G3;
