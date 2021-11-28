@@ -123,6 +123,8 @@ enum chaos_request_algo {
   CHAOS_ALGO_RC4_DEC,
   CHAOS_ALGO_BF_ENC,
   CHAOS_ALGO_BF_DEC,
+  CHAOS_ALGO_TF_ENC,
+  CHAOS_ALGO_TF_DEC,
 };
 
 long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
@@ -176,6 +178,18 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
   }
   case CHAOS_ALGO_BF_DEC: {
     Buffer outb(crypto::BLOWFISH_decrypt(keyb, inb));
+    if (!outb.ToUser(inferior, out))
+      return -EFAULT;
+    return outb.size();
+  }
+  case CHAOS_ALGO_TF_ENC: {
+    Buffer outb(crypto::TWOFISH_encrypt(keyb, inb));
+    if (!outb.ToUser(inferior, out))
+      return -EFAULT;
+    return outb.size();
+  }
+  case CHAOS_ALGO_TF_DEC: {
+    Buffer outb(crypto::TWOFISH_decrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
       return -EFAULT;
     return outb.size();

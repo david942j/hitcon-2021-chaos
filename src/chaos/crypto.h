@@ -31,6 +31,10 @@ Buffer BLOWFISH_encrypt(const Buffer &key, const Buffer &inb);
 
 Buffer BLOWFISH_decrypt(const Buffer &key, const Buffer &inb);
 
+Buffer TWOFISH_encrypt(const Buffer &key, const Buffer &inb);
+
+Buffer TWOFISH_decrypt(const Buffer &key, const Buffer &inb);
+
 }
 
 #endif // _CRYPTO_H
