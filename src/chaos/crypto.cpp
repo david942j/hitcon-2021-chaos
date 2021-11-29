@@ -15,8 +15,8 @@
 #include "cipher/blowfish.h"
 #include "cipher/rc4.h"
 #include "cipher/rsa.h"
-#include "cipher/twofish.h"
 #include "cipher/threefish.h"
+#include "cipher/twofish.h"
 
 namespace crypto {
 
@@ -134,7 +134,7 @@ Buffer TWOFISH_decrypt(const Buffer &key, const Buffer &inb) {
 
 Buffer THREEFISH_encrypt(const Buffer &key, const Buffer &inb) {
   CHECK(key.size() == threefish::kKeyLength);
-  CHECK(inb.size() % sizeof(uint32_t) == 0);
+  CHECK(inb.size() % sizeof(uint64_t) == 0);
   CHECK(inb.size() <= threefish::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
@@ -144,7 +144,7 @@ Buffer THREEFISH_encrypt(const Buffer &key, const Buffer &inb) {
 
 Buffer THREEFISH_decrypt(const Buffer &key, const Buffer &inb) {
   CHECK(key.size() == threefish::kKeyLength);
-  CHECK(inb.size() % sizeof(uint32_t) == 0);
+  CHECK(inb.size() % sizeof(uint64_t) == 0);
   CHECK(inb.size() <= threefish::kBlockSize);
   Buffer outb(inb.size());
   CHECK(outb.Allocate());
