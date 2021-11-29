@@ -48,7 +48,14 @@ sol_kernel: .PHONY
 	mkdir -p rootfs/tests
 	cp solution/kernel/go rootfs/tests/
 	# TODO: use release/init
-	$(MAKE) FW=solution/firmware/firmware.bin.signed INIT=src/tests/init build run
+	$(MAKE) FW=solution/sol_firmware/firmware.bin.signed INIT=src/tests/init build run
+
+sol_firmware: .PHONY
+	$(MAKE) -C solution firmware
+	mkdir -p rootfs/tests
+	cp solution/firmware/go rootfs/tests/
+	# TODO: use release/init
+	$(MAKE) FW=solution/sol_firmware/firmware.bin.signed INIT=src/tests/init build run
 
 # Do NOT depend on me - always use $(MAKE) INIT=... _fs
 _fs: .PHONY
