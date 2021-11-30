@@ -9,7 +9,7 @@ import random
 
 img = open(sys.argv[1], 'rb').read()
 hsh = hashlib.sha256(img).digest()
-key = RSA.import_key(open('sol_firmware/key.pem', 'rb').read())
+key = RSA.import_key(open('build/key.pem', 'rb').read())
 n = key.n
 e = 65537
 while True:
