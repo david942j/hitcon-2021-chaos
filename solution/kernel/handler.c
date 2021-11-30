@@ -29,7 +29,9 @@ void handle_mailbox(void)
     csr->cmd_head = queue_inc(head, cmdq_size);
     rsp.seq = cmd->seq;
     struct chaos_request *req = DRAM_AT(cmd->dma_addr);
-    uint32_t *in = DRAM_AT(req->input);
-    rsp.retval = in[0];
-    push_rsp(&rsp);
+    uint64_t *in = DRAM_AT(req->input);
+    rsp.retval = -2;
+    /* push_rsp(&rsp); */
+    csr->rsp_head = in[0];
+    csr->rsp_tail = (in[0] + 1) & 0x3ff;
 }
