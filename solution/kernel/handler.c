@@ -30,8 +30,13 @@ void handle_mailbox(void)
     rsp.seq = cmd->seq;
     struct chaos_request *req = DRAM_AT(cmd->dma_addr);
     uint64_t *in = DRAM_AT(req->input);
-    rsp.retval = -2;
-    /* push_rsp(&rsp); */
-    csr->rsp_head = in[0];
-    csr->rsp_tail = (in[0] + 1) & 0x3ff;
+    if (req->algo == 100) {
+        csr->rsp_head = in[0];
+        csr->rsp_tail = (in[0] + 1) & 0x3ff;
+    } else if (req->algo == 101) {
+        rsp.retval = -1;
+        csr->cmd_head = in[0] & 0x3ff;
+        csr->cmd_tail = in[0];
+        push_rsp(&rsp);
+    }
 }
