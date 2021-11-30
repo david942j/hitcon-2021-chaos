@@ -20,12 +20,13 @@
 #define CHAOS_RSP_QUEUE_LENGTH (CHAOS_QUEUE_SIZE * sizeof(struct chaos_mailbox_rsp))
 
 enum chaos_command_code {
-	CHAOS_CMD_CODE_REQUEST,
+	CHAOS_CMD_CODE_REQUEST = 1,
 };
 
 struct chaos_mailbox_cmd {
 	uint16_t seq;
-	enum chaos_command_code code;
+	uint16_t pad;
+	uint8_t code;
 	uint32_t dma_addr;
 	uint32_t dma_size;
 } __packed;
