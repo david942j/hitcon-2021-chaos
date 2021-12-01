@@ -160,7 +160,7 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
     }
     return RegisterKey(keyb);
   }
-  if (args[0] == CHAOS_ALGO_REG_KEY) {
+  if (args[0] == CHAOS_ALGO_UNREG_KEY) {
     uint32_t handler = args[1];
     return UnRegisterKey(handler);
   }
