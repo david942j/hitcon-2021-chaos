@@ -75,8 +75,8 @@ struct dram_buffer {
     uint32_t size;
 };
 
-#define PACK(ptr, size) ((((uint64_t)ptr) << 32) | (uint64_t)size)
-#define PACKDB(db) PACK(db.ptr, db.size)
+#define PACK(ptr, size) ((((uint64_t)(ptr)) << 32) | (uint64_t)(size))
+#define PACKDB(db) PACK((db).ptr, (db).size)
 
 #define AES_BLOCK_SIZE 0x10
 #define BLOWFISH_BLOCK_SIZE 0x8

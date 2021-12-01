@@ -19,6 +19,16 @@ static void xor(uint8_t *ptr, uint8_t *from, uint32_t size)
         ptr[i] ^= from[i];
 }
 
+static long reg(struct dram_buffer *key)
+{
+    return syscall(SYS_chaos_crypto, CHAOS_ALGO_REG_KEY, PACKDB(*key));
+}
+
+static void unreg(long kh)
+{
+    syscall(SYS_chaos_crypto, CHAOS_ALGO_REG_KEY, kh);
+}
+
 static int cbc_mode(enum chaos_request_algo algo, struct dram_buffer in, struct dram_buffer key,
                     struct dram_buffer out, uint32_t block_size)
 {
@@ -26,17 +36,21 @@ static int cbc_mode(enum chaos_request_algo algo, struct dram_buffer in, struct 
     uint8_t *in_ptr, *out_ptr, *prev_ptr;
     uint32_t i;
     int ret, tot = 0;
+    long kh = reg(&key);
+
     for (i = 0; i < in_size; i += block_size) {
         in_ptr = ((uint8_t *)in.ptr) + i;
         out_ptr = ((uint8_t *)out.ptr) + i;
         if (i != 0)
             xor(in_ptr, prev_ptr, block_size);
         prev_ptr = out_ptr;
-        ret = syscall(SYS_chaos_crypto, algo, PACK(in_ptr, block_size), PACKDB(key), PACK(out_ptr, block_size));
+        ret = syscall(SYS_chaos_crypto, algo, PACK(in_ptr, block_size), PACK(out_ptr, block_size), kh);
         if (ret < 0)
             return ret;
         tot += ret;
     }
+
+    unreg(kh);
     return tot;
 }
 
@@ -64,15 +78,29 @@ static int handle_cmd_request(struct chaos_mailbox_cmd *cmd)
     case CHAOS_ALGO_MD5:
         if (out.size < 0x10)
             return -EOVERFLOW;
-        return syscall(SYS_chaos_crypto, CHAOS_ALGO_MD5, PACKDB(in), PACKDB(key), PACKDB(out));
+        return syscall(SYS_chaos_crypto, CHAOS_ALGO_MD5, PACKDB(in), PACKDB(out));
+    case CHAOS_ALGO_SHA256:
+        if (out.size < 0x20)
+            return -EOVERFLOW;
+        return syscall(SYS_chaos_crypto, CHAOS_ALGO_SHA256, PACKDB(in), PACKDB(out));
     case CHAOS_ALGO_RC4_ENC:
         if (out.size < in.size)
             return -EOVERFLOW;
-        return syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_ENC, PACKDB(in), PACKDB(key), PACKDB(out));
+        {
+            uint32_t kh = reg(&key);
+            long ret = syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_ENC, PACKDB(in), PACKDB(out), kh);
+            unreg(kh);
+            return ret;
+        }
     case CHAOS_ALGO_RC4_DEC:
         if (out.size < in.size)
             return -EOVERFLOW;
-        return syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_DEC, PACKDB(in), PACKDB(key), PACKDB(out));
+        {
+            uint32_t kh = reg(&key);
+            long ret = syscall(SYS_chaos_crypto, CHAOS_ALGO_RC4_DEC, PACKDB(in), PACKDB(out), kh);
+            unreg(kh);
+            return ret;
+        }
     case CHAOS_ALGO_AES_ENC:
         if (out.size < in.size)
             return -EOVERFLOW;
