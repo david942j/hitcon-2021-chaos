@@ -16,7 +16,7 @@ static void xor(uint8_t *ptr, uint8_t *from, uint32_t size)
     uint32_t i;
 
     for (i = 0; i < size; i++)
-	ptr[i] ^= from[i];
+        ptr[i] ^= from[i];
 }
 
 static int cbc_mode(enum chaos_request_algo algo, struct dram_buffer in, struct dram_buffer key,
@@ -27,15 +27,15 @@ static int cbc_mode(enum chaos_request_algo algo, struct dram_buffer in, struct 
     uint32_t i;
     int ret, tot = 0;
     for (i = 0; i < in_size; i += block_size) {
-	in_ptr = ((uint8_t *)in.ptr) + i;
-	out_ptr = ((uint8_t *)out.ptr) + i;
-	if (i != 0)
-	    xor(in_ptr, prev_ptr, block_size);
-	prev_ptr = out_ptr;
-	ret = syscall(SYS_chaos_crypto, algo, PACK(in_ptr, block_size), PACKDB(key), PACK(out_ptr, block_size));
-	if (ret < 0)
-	    return ret;
-	tot += ret;
+        in_ptr = ((uint8_t *)in.ptr) + i;
+        out_ptr = ((uint8_t *)out.ptr) + i;
+        if (i != 0)
+            xor(in_ptr, prev_ptr, block_size);
+        prev_ptr = out_ptr;
+        ret = syscall(SYS_chaos_crypto, algo, PACK(in_ptr, block_size), PACKDB(key), PACK(out_ptr, block_size));
+        if (ret < 0)
+            return ret;
+        tot += ret;
     }
     return tot;
 }
