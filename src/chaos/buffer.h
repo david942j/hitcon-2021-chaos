@@ -46,9 +46,7 @@ class Buffer {
       return false;
     if (size_ == 0 || size_ > 0x100000)
       return false;
-    // NOTE: can be a bug if size_ is not word-aligned
-    // PEEKUSER can overflow
-    ptr_ = new uint8_t[size_ + 8];
+    ptr_ = new uint8_t[size_];
     if (!ptr_)
       return false;
     return true;

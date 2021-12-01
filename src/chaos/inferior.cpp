@@ -47,19 +47,37 @@ bool Inferior::WaitForSys() {
 }
 
 bool Inferior::Read(uint8_t *ptr, uint32_t uptr, uint32_t size) const {
+  uint32_t r = size % sizeof(uint64_t);
+  size -= r;
   for (uint32_t i = 0; i < size; i += sizeof(uint64_t)) {
     uint64_t data = ptrace(PTRACE_PEEKDATA, pid_, uptr + i, 0);
     *reinterpret_cast<uint64_t*>(ptr + i) = data;
     debug("[0x%x] = %lx\n", uptr + i, data);
   }
+  // prevent overflow
+  if (r) {
+    uint64_t data = ptrace(PTRACE_PEEKDATA, pid_, uptr + size, 0);
+    for (uint32_t i = 0; i < r; ++i) {
+      ptr[size + i] = data & 0xff;
+      data >>= 8;
+    }
+  }
   return true;
 }
 
 bool Inferior::Write(uint8_t *ptr, uint32_t uptr, uint32_t size) const {
+  uint32_t r = size % sizeof(uint64_t);
+  size -= r;
   for (uint32_t i = 0; i < size; i += sizeof(uint64_t)) {
     if (ptrace(PTRACE_POKEDATA, pid_, uptr + i, *reinterpret_cast<uint64_t*>(ptr + i)))
       return false;
     debug("[0x%x] = %lx\n", uptr + i, *reinterpret_cast<uint64_t*>(ptr + i));
+  }
+  if (r) {
+    for (uint32_t i = 0; i < r; ++i) {
+      if (ptrace(PTRACE_POKEDATA, pid_, uptr + size + i, ptr[size + i]))
+        return false;
+    }
   }
   return true;
 }
