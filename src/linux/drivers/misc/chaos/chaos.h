@@ -21,6 +21,7 @@ enum chaos_request_algo {
 	/* copy input to output, for testing purpose */
 	CHAOS_ALGO_ECHO,
 	CHAOS_ALGO_MD5,
+	CHAOS_ALGO_SHA256,
 	CHAOS_ALGO_AES_ENC,
 	CHAOS_ALGO_AES_DEC,
 	CHAOS_ALGO_RC4_ENC,

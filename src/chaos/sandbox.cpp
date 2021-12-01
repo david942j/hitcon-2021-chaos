@@ -117,6 +117,7 @@ enum chaos_request_algo {
   /* copy input to output, for testing purpose */
   CHAOS_ALGO_ECHO,
   CHAOS_ALGO_MD5,
+  CHAOS_ALGO_SHA256,
   CHAOS_ALGO_AES_ENC,
   CHAOS_ALGO_AES_DEC,
   CHAOS_ALGO_RC4_ENC,
@@ -144,6 +145,12 @@ long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
   switch (args[0]) {
   case CHAOS_ALGO_MD5: {
     Buffer outb(crypto::MD5(inb));
+    if (!outb.ToUser(inferior, out))
+      return -EFAULT;
+    return outb.size();
+  }
+  case CHAOS_ALGO_SHA256: {
+    Buffer outb(crypto::SHA256(inb));
     if (!outb.ToUser(inferior, out))
       return -EFAULT;
     return outb.size();
