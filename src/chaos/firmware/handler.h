@@ -39,6 +39,8 @@ enum chaos_request_algo {
     CHAOS_ALGO_TF_DEC,
     CHAOS_ALGO_FFF_ENC,
     CHAOS_ALGO_FFF_DEC,
+    CHAOS_ALGO_REG_KEY = 254,
+    CHAOS_ALGO_UNREG_KEY = 255,
 };
 
 struct chaos_request {

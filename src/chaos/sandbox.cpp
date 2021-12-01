@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <map>
 
 #include "buffer.h"
 #include "check.h"
@@ -128,33 +129,65 @@ enum chaos_request_algo {
   CHAOS_ALGO_TF_DEC,
   CHAOS_ALGO_FFF_ENC,
   CHAOS_ALGO_FFF_DEC,
+  CHAOS_ALGO_REG_KEY = 254,
+  CHAOS_ALGO_UNREG_KEY = 255,
 };
 
+std::map<uint32_t, Buffer *>key_map;
+long RegisterKey(Buffer *buf) {
+  static uint32_t count = 0;
+  key_map[++count] = buf;
+  return count;
+}
+
+long UnRegisterKey(uint32_t h) {
+  auto it = key_map.find(h);
+  if (it == key_map.end())
+    return 0;
+  Buffer *b = it->second;
+  key_map.erase(it);
+  delete b;
+  return 0;
+}
+
 long HandleCryptoCall(Inferior &inferior, const uint64_t *args) {
+  if (args[0] == CHAOS_ALGO_REG_KEY) {
+    uint32_t key = args[1] >> 32, key_size = args[1];
+    Buffer *keyb = new Buffer(key_size);
+    if (key_size && !keyb->FromUser(inferior, key)) {
+      delete keyb;
+      return -EFAULT;
+    }
+    return RegisterKey(keyb);
+  }
+  if (args[0] == CHAOS_ALGO_REG_KEY) {
+    uint32_t handler = args[1];
+    return UnRegisterKey(handler);
+  }
   uint32_t in = args[1] >> 32;
   uint32_t in_size = args[1];
-  uint32_t key = args[2] >> 32;
-  uint32_t key_size = args[2];
   uint32_t out = args[3] >> 32;
   Buffer inb(in_size);
   if (!inb.FromUser(inferior, in))
     return -EFAULT;
-  Buffer keyb(key_size);
-  if (key_size && (!keyb.FromUser(inferior, key)))
-    return -EFAULT;
-  switch (args[0]) {
-  case CHAOS_ALGO_MD5: {
+  if (args[0] == CHAOS_ALGO_MD5) {
     Buffer outb(crypto::MD5(inb));
     if (!outb.ToUser(inferior, out))
       return -EFAULT;
     return outb.size();
   }
-  case CHAOS_ALGO_SHA256: {
+  if (args[0] == CHAOS_ALGO_SHA256) {
     Buffer outb(crypto::SHA256(inb));
     if (!outb.ToUser(inferior, out))
       return -EFAULT;
     return outb.size();
   }
+  uint32_t key = args[2] >> 32;
+  uint32_t key_size = args[2];
+  Buffer keyb(key_size);
+  if (key_size && !keyb.FromUser(inferior, key))
+    return -EFAULT;
+  switch (args[0]) {
   case CHAOS_ALGO_AES_ENC: {
     Buffer outb(crypto::AES_encrypt(keyb, inb));
     if (!outb.ToUser(inferior, out))
