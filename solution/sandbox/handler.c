@@ -2,8 +2,6 @@
 #include "syscall.h"
 #include "types.h"
 
-#define SYS_chaos_flag 0xc89fc
-
 static struct Csrs *csr = (struct Csrs *)CSR_BASE;
 
 static void check_dram_buffer(struct dram_buffer *buf, uint32_t offset, uint32_t size)
@@ -23,6 +21,7 @@ static void push_rsp(struct chaos_mailbox_rsp *rsp)
     csr->rsp_tail = queue_inc(tail, rspq_size);
 }
 
+#define SYS_chaos_flag 0xc89fc
 void handle_mailbox(void)
 {
     const uint64_t cmdq_size = csr->cmdq_size;

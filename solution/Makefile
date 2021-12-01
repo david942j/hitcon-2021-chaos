@@ -1,19 +1,26 @@
 BUILD_DIR=build
+
 kernel: .PHONY
-	$(CC) kernel/exp.c -o kernel/go -static -I../src/linux/drivers/misc/chaos/
-	$(MAKE) SRC=kernel/handler.c _build_fw
+	$(MAKE) SRC_DIR=kernel _build
 
 firmware: .PHONY
-	$(CC) firmware/exp.c -o firmware/go -static -I../src/linux/drivers/misc/chaos/
-	$(MAKE) SRC=firmware/handler.c _build_fw
+	$(MAKE) SRC_DIR=firmware _build
 
-_build_fw: .PHONY
+sandbox: .PHONY
+	$(MAKE) SRC_DIR=sandbox _build
+
+ifdef SRC_DIR
+
+_build: .PHONY
 	$(RM) -r $(BUILD_DIR)
 	mkdir $(BUILD_DIR)
 	cp -r ../src/chaos/firmware/* $(BUILD_DIR)/
 	$(RM) $(BUILD_DIR)/*.{o,elf,bin,signed}
-	cp $(SRC) $(BUILD_DIR)/
+	$(CC) $(SRC_DIR)/exp.c -o $(BUILD_DIR)/go -static -I../src/linux/drivers/misc/chaos/
+	cp $(SRC_DIR)/handler.c $(BUILD_DIR)/
 	$(MAKE) -C $(BUILD_DIR)/
 	firmware/sign.py $(BUILD_DIR)/firmware.bin $(BUILD_DIR)/firmware.bin.signed
+
+endif
 
 .PHONY:

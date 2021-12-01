@@ -46,14 +46,21 @@ test: .PHONY
 sol_kernel: .PHONY
 	$(MAKE) -C solution kernel
 	mkdir -p rootfs/tests
-	cp solution/kernel/go rootfs/tests/
+	cp solution/build/go rootfs/tests/
 	# TODO: use release/init
 	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/tests/init build run
 
 sol_firmware: .PHONY
 	$(MAKE) -C solution firmware
 	mkdir -p rootfs/tests
-	cp solution/firmware/go rootfs/tests/
+	cp solution/build/go rootfs/tests/
+	# TODO: use release/init
+	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/tests/init build run
+
+sol_sandbox: .PHONY
+	$(MAKE) -C solution sandbox
+	mkdir -p rootfs/tests
+	cp solution/build/go rootfs/tests/
 	# TODO: use release/init
 	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/tests/init build run
 
