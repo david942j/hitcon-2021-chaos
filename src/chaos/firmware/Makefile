@@ -1,3 +1,4 @@
+DEPS = $(wildcard *.h)
 all: firmware
 
 firmware: entry.o handler.o syscall.S
@@ -5,5 +6,5 @@ firmware: entry.o handler.o syscall.S
 	objcopy -O binary firmware.elf firmware.bin
 	./sign.py firmware.bin firmware.bin.signed
 
-%.o: %.c
+%.o: %.c $(DEPS)
 	$(CC) -Os -nostdlib -c -o $@ $<
