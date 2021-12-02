@@ -8,6 +8,9 @@ firmware: .PHONY
 
 sandbox: .PHONY
 	$(MAKE) SRC_DIR=sandbox _build
+	# let our firmware has a fixed size to fix the heap layout
+	python3 -c 'f="build/firmware.bin";c=open(f,"rb").read();open(f,"wb").write(c.ljust(0x1000,b"\x00"))'
+	firmware/sign.py $(BUILD_DIR)/firmware.bin $(BUILD_DIR)/firmware.bin.signed
 
 ifdef SRC_DIR
 
