@@ -5,6 +5,7 @@ OBJ = sandbox.o inferior.o crypto.o cipher/cipher.o
 all: sandbox firmware
 sandbox: $(OBJ)
 	$(CXX) -o $@ $^ $(CXXFLAGS) -lcrypto -lgmp
+	strip -s $@
 
 cipher/cipher.o: .PHONY
 	$(MAKE) CXXFLAGS="$(CXXFLAGS)" -C cipher cipher.o
