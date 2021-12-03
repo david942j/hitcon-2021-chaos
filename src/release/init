@@ -1,6 +1,7 @@
 #!/bin/sh
 
 chown 0:0 -R /
+chmod 400 /flag
 
 mkdir -p /dev /proc /sys /tmp
 mount -t devtmpfs none /dev

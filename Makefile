@@ -18,11 +18,22 @@ clear_fs: .PHONY
 	$(RM) -r rootfs
 	tar xzf rootfs_clear.tar.gz
 
+ifdef FLAG
+
+deploy: release .PHONY
+	cp -r release/pc-bios release/qemu-system-x86_64 release/bzImage release/sandbox deploy/
+	echo "$(FLAG)" > rootfs/flag
+	$(MAKE) INIT="src/release/init" _fs
+	cp rootfs.cpio.gz deploy/
+	tar cvzf deploy.tar.gz deploy/
+
+endif
+
 release: qemu clear_fs .PHONY
 	mkdir -p release/pc-bios
 	echo 'FLAG OF FIRMWARE' > release/flag_firmware
 	echo 'FLAG OF SANDBOX' > release/flag_sandbox
-	echo 'FLAG OF KERNEL' > rootfs/flag && chmod 400 rootfs/flag
+	echo 'FLAG OF KERNEL' > rootfs/flag
 	$(MAKE) -C src/tests
 	mkdir -p rootfs/home/chaos
 	cp src/tests/test_ioctl rootfs/home/chaos/run
@@ -61,6 +72,11 @@ sol_sandbox: .PHONY
 	$(MAKE) -C solution sandbox
 	$(MAKE) _sol_build
 	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/release/init build run
+
+# make remote CHAL=kernel|firmware|sandbox
+remote: .PHONY
+	$(MAKE) -C solution $(CHAL)
+	solution/send.rb
 
 _sol_build: .PHONY
 	mkdir -p rootfs/home/chaos

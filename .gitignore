@@ -16,3 +16,8 @@ modules.order
 /release/pc-bios
 /release/qemu-*
 /release/sandbox
+/deploy/bzImage
+/deploy/pc-bios
+/deploy/qemu-*
+/deploy/sandbox
+/deploy.tar.gz

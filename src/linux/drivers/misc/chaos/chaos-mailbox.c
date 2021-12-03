@@ -17,7 +17,7 @@
 #include "chaos-mailbox.h"
 #include "chaos.h"
 
-#define MAILBOX_TIMEOUT_MS 1000
+#define MAILBOX_TIMEOUT_MS 2000
 /* BUG: should be "& (CHAOS_QUEUE_SIZE - 1)" to prevent OOB */
 #define REAL_INDEX(v) ((v) & ~CHAOS_QUEUE_SIZE)
 
