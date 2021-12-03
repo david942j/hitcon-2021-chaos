@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -14,33 +13,35 @@
 
 #define error(fmt, ...) do { fprintf(stderr, fmt, __VA_ARGS__); exit(2); } while (0)
 
+#define assert(cond) do { if (!(cond)) error("Assertion failed: `%s'\n", #cond); } while (0)
+
 #define ASSERT_IOCTL_ERR(fd, cmd, arg, err) do { \
   int ret = ioctl(fd, cmd, arg); \
   if (!ret) { \
-    error("%s#%d: expect ioctl(%s, %s, %s) to return %s, but succeeded\n", \
-          __func__, __LINE__, #fd, #cmd, #arg, #err); \
+    error("#%d: expect ioctl(%s, %s, %s) to return %s, but succeeded\n", \
+          __LINE__, #fd, #cmd, #arg, #err); \
   } else if (errno != err) { \
-    error("%s#%d: expect ioctl(%s, %s, %s) to return %s, but got %s\n", \
-          __func__, __LINE__, #fd, #cmd, #arg, #err, strerror(errno)); \
+    error("#%d: expect ioctl(%s, %s, %s) to return %s, but got %s\n", \
+          __LINE__, #fd, #cmd, #arg, #err, strerror(errno)); \
   } \
 } while (0)
 
 #define ASSERT_IOCTL_OK(fd, cmd, arg) do { \
   int ret = ioctl(fd, cmd, arg); \
   if (ret) { \
-    error("%s#%d: expect ioctl(%s, %s, %s) to succeed, but got %s\n", \
-          __func__, __LINE__, #fd, #cmd, #arg, strerror(errno)); \
+    error("#%d: expect ioctl(%s, %s, %s) to succeed, but got %s\n", \
+          __LINE__, #fd, #cmd, #arg, strerror(errno)); \
   } \
 } while (0)
 
 #define ASSERT_MMAP_ERR(size, prot, fd, off, err) do { \
   void *ptr = mmap(0, size, prot, MAP_SHARED, fd, off); \
   if (ptr != MAP_FAILED) { \
-    error("%s#%d: expect mmap(%s, %s, %s, %s) to return %s, but succeeded\n", \
-          __func__, __LINE__, #size, #prot, #fd, #off, #err); \
+    error("%d: expect mmap(%s, %s, %s, %s) to return %s, but succeeded\n", \
+          __LINE__, #size, #prot, #fd, #off, #err); \
   } else if (errno != err) { \
-    error("%s#%d: expect mmap(%s, %s, %s, %s) to return %s, but got %s\n", \
-          __func__, __LINE__, #size, #prot, #fd, #off, #err, strerror(errno)); \
+    error("#%d: expect mmap(%s, %s, %s, %s) to return %s, but got %s\n", \
+          __LINE__, #size, #prot, #fd, #off, #err, strerror(errno)); \
   } \
 } while (0)
 
@@ -51,7 +52,7 @@ static int OPEN(void) {
   return fd;
 }
 
-static void test_alloate_buffer(void) {
+static void test_allocate_buffer(void) {
   int fd = OPEN();
   ASSERT_IOCTL_ERR(fd, CHAOS_ALLOCATE_BUFFER, 0ul, EINVAL);
   ASSERT_IOCTL_ERR(fd, CHAOS_ALLOCATE_BUFFER, 1 << 20, ENOSPC);
@@ -224,13 +225,13 @@ static void test_bf(void) {
   req.out_size = 0x100;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == req.in_size);
-  static const u_int8_t bf_enc[] = { 199, 137, 205, 44, 93, 170, 122, 90 };
-  assert(memcmp(buf, bf_enc, 0x8) == 0);
+  static const u_int8_t enc[] = { 199, 137, 205, 44, 93, 170, 122, 90 };
+  assert(memcmp(buf, enc, 0x8) == 0);
   req.algo = CHAOS_ALGO_BF_DEC;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == req.in_size);
-  static const u_int8_t bf_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14 };
-  assert(memcmp(buf, bf_dec, 0x8) == 0);
+  static const u_int8_t dec[] = { 0, 2, 4, 6, 8, 10, 12, 14 };
+  assert(memcmp(buf, dec, 0x8) == 0);
   close(fd);
   munmap(buf, 0x200);
 }
@@ -257,13 +258,13 @@ static void test_tf(void) {
   req.out_size = 0x100;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == 0x10);
-  static const u_int8_t tf_enc[] = { 202, 203, 149, 244, 190, 76, 3, 2, 246, 240, 96, 168, 23, 207, 43, 40 };
-  assert(memcmp(buf, tf_enc, 0x10) == 0);
+  static const u_int8_t enc[] = { 202, 203, 149, 244, 190, 76, 3, 2, 246, 240, 96, 168, 23, 207, 43, 40 };
+  assert(memcmp(buf, enc, 0x10) == 0);
   req.algo = CHAOS_ALGO_TF_DEC;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == 0x10);
-  static const u_int8_t tf_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
-  assert(memcmp(buf, tf_dec, 0x10) == 0);
+  static const u_int8_t dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
+  assert(memcmp(buf, dec, 0x10) == 0);
   close(fd);
   munmap(buf, 0x200);
 }
@@ -290,19 +291,19 @@ static void test_fff(void) {
   req.out_size = 0x100;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == 0x20);
-  static const u_int8_t fff_enc[] = { 41, 218, 72, 156, 116, 144, 204, 110, 215, 233, 248, 7, 99, 238, 156, 43, 5, 207, 36, 19, 110, 165, 99, 85, 44, 227, 225, 243, 155, 116, 167, 61 };
-  assert(memcmp(buf, fff_enc, 0x20) == 0);
+  static const u_int8_t enc[] = { 41, 218, 72, 156, 116, 144, 204, 110, 215, 233, 248, 7, 99, 238, 156, 43, 5, 207, 36, 19, 110, 165, 99, 85, 44, 227, 225, 243, 155, 116, 167, 61 };
+  assert(memcmp(buf, enc, 0x20) == 0);
   req.algo = CHAOS_ALGO_FFF_DEC;
   ASSERT_IOCTL_OK(fd, CHAOS_REQUEST, &req);
   assert(req.out_size == 0x20);
-  static const u_int8_t fff_dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62 };
-  assert(memcmp(buf, fff_dec, 0x20) == 0);
+  static const u_int8_t dec[] = { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62 };
+  assert(memcmp(buf, dec, 0x20) == 0);
   close(fd);
   munmap(buf, 0x200);
 }
 
 int main() {
-  test_alloate_buffer();
+  test_allocate_buffer();
   test_request();
   test_md5();
   test_aes();

@@ -4,3 +4,4 @@ all: test_ioctl
 
 %: %.c $(UAPI_HEADER)
 	$(CC) -static $< -o $@ -I$(UAPI_HEADER_DIR)
+	strip -s $@
