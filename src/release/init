@@ -12,6 +12,6 @@ insmod chaos.ko
 chmod 0666 /dev/chaos
 dmesg -n 1
 
-timeout -s KILL 60 setsid cttyhack su -s /selftest user && timeout -s KILL 60 setsid cttyhack su -s /home/chaos/go user
+timeout -s KILL 60 setsid cttyhack su -s /home/chaos/run user
 
 poweroff -f

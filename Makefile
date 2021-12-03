@@ -24,9 +24,8 @@ release: qemu clear_fs .PHONY
 	echo 'FLAG OF SANDBOX' > release/flag_sandbox
 	echo 'FLAG OF KERNEL' > rootfs/flag && chmod 400 rootfs/flag
 	$(MAKE) -C src/tests
-	cp src/tests/test_ioctl rootfs/selftest
-	mkdir -p rootfs/home/chaos/
-	echo '#!/bin/sh\necho GO\nexit' > rootfs/home/chaos/go && chmod +x rootfs/home/chaos/go
+	mkdir -p rootfs/home/chaos
+	cp src/tests/test_ioctl rootfs/home/chaos/run
 	$(MAKE) INIT="src/release/init" kernel
 	cp $(QEMU_BUILD_DIR)/qemu-system-x86_64 linux/arch/x86_64/boot/bzImage src/chaos/sandbox rootfs.cpio.gz release/
 	$(foreach f,$(QEMU_ROM_FILES),cp $(QEMU_BUILD_DIR)/pc-bios/$(f) release/pc-bios/;)
@@ -44,29 +43,28 @@ kernel: .PHONY
 
 test: .PHONY
 	$(MAKE) -C src/tests
-	cp -r src/tests rootfs/
+	mkdir -p rootfs/home/chaos
+	cp src/tests/test_ioctl rootfs/home/chaos/run
 	$(MAKE) INIT=src/tests/init build run
 
 sol_kernel: .PHONY
 	$(MAKE) -C solution kernel
-	mkdir -p rootfs/tests
-	cp solution/build/go rootfs/tests/
-	# TODO: use release/init
-	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/tests/init build run
+	$(MAKE) _sol_build
+	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/release/init build run
 
 sol_firmware: .PHONY
 	$(MAKE) -C solution firmware
-	mkdir -p rootfs/tests
-	cp solution/build/go rootfs/tests/
-	# TODO: use release/init
-	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/tests/init build run
+	$(MAKE) _sol_build
+	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/release/init build run
 
 sol_sandbox: .PHONY
 	$(MAKE) -C solution sandbox
-	mkdir -p rootfs/tests
-	cp solution/build/go rootfs/tests/
-	# TODO: use release/init
-	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/tests/init build run
+	$(MAKE) _sol_build
+	$(MAKE) FW=solution/build/firmware.bin.signed INIT=src/release/init build run
+
+_sol_build: .PHONY
+	mkdir -p rootfs/home/chaos
+	cp solution/build/go rootfs/home/chaos/run
 
 # Do NOT depend on me - always use $(MAKE) INIT=... _fs
 _fs: .PHONY

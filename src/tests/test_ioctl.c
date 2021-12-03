@@ -311,5 +311,6 @@ int main() {
   test_bf();
   test_tf();
   test_fff();
+  puts("All tests passed.");
   return 0;
 }

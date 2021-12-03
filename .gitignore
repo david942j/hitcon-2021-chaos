@@ -9,8 +9,6 @@ modules.order
 /rootfs/flag
 /rootfs/init
 /rootfs/lib/firmware/chaos
-/rootfs/tests
-/rootfs/selftest
 /rootfs/home
 /release/*.gz
 /release/bzImage
