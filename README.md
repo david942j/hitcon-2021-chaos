@@ -34,9 +34,9 @@ Author: david942j,lyc
 
 ## Writeups
 
-Will post to my blog as the official writeup.
-
-Let me know (by filing an issue or creating a PR) if you'd like to add a link to your own writeups here!
+* [Official writeup](https://david942j.blogspot.com/2021/12/official-write-up-hitcon-ctf-2021-chaos.html
+)
+* [Writeup](https://org.anize.rs/HITCON-2021/pwn/chaos) by team [organizers](https://ctftime.org/team/42934)
 
 ## Developer Notes
 
